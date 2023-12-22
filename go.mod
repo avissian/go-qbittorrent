@@ -1,4 +1,4 @@
-module github.com/fabriceboyer/go-qbittorrent
+module github.com/avissian/go-qbittorrent
 
 go 1.21
 
