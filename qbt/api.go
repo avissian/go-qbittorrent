@@ -36,7 +36,7 @@ type Client struct {
 	URL           string
 	Authenticated bool
 	Jar           http.CookieJar
-	Rid           uint
+	Rid           uint64
 }
 
 // NewClient creates a new client connection to qbittorrent
@@ -1292,17 +1292,83 @@ func (client *Client) SetSuperSeeding(hashes []string, value bool) (err error) {
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
 	}
 }
+func (client *Client) BanPeers(peers []string) (err error) {
+	opts := map[string]string{
+		"peers": delimit(peers, "|"),
+	}
+	resp, err := client.post("api/v2/transfer/banPeers", opts)
+	if err != nil {
+		return
+	}
+	switch sc := (*resp).StatusCode; sc {
+	case 200:
+		return nil
+	default:
+		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
+	}
+}
 
-// TODO: Sync Endpoints (torrentPeers)
+// Sync Endpoints
+func (client *Client) TorrentPeers(hash string, rid uint64) (peers TorrentPeers, err error) {
+	if rid == 0 {
+		rid = client.Rid
+	}
+	opts := map[string]string{
+		"hash": hash,
+		"rid":  strconv.FormatUint(rid, 10),
+	}
+	resp, err := client.get("api/v2/sync/torrentPeers", opts)
+	if err != nil {
+		return
+	}
+	if sc := (*resp).StatusCode; sc != 200 {
+		err = wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&peers)
+	if err != nil {
+		return
+	}
+	client.Rid = peers.Rid
+	return
+
+}
+
+func (client *Client) TorrentPeersRaw(hash string, rid uint64) (peers string, err error) {
+	if rid == 0 {
+		rid = client.Rid
+	}
+	opts := map[string]string{
+		"hash": hash,
+		"rid":  strconv.FormatUint(rid, 10),
+	}
+	resp, err := client.get("api/v2/sync/torrentPeers", opts)
+	if err != nil {
+		return
+	}
+	if sc := (*resp).StatusCode; sc != 200 {
+		err = wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
+		return
+	}
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	peers = string(buf)
+	return
+
+}
 
 // MainData return diff state between Rid (used by WebUI main page)
 // @params Rid - 0 for default next
-func (client *Client) MainData(Rid uint) (sync Sync, err error) {
-	if Rid == 0 {
-		Rid = client.Rid
+func (client *Client) MainData(rid uint64) (sync Sync, err error) {
+	if rid == 0 {
+		rid = client.Rid
 	}
 	opts := map[string]string{
-		"rid": strconv.FormatUint(uint64(Rid), 10),
+		"rid": strconv.FormatUint(rid, 10),
 	}
 	resp, err := client.get("api/v2/sync/maindata", opts)
 	if err != nil {
