@@ -9,7 +9,7 @@ Some methods are only supported in qBittorent's latest version (v4.5 when writin
 
 It'll be best if you upgrade your client to a latest version.
 
-An example can be found in main.go
+An example can be found in go-qbittorrent.go
 
 Installation
 ============
