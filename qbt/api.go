@@ -12,10 +12,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path"
-
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -229,7 +228,7 @@ func (client *Client) Login(opts LoginOptions) (err error) {
 
 	// add the cookie to cookie jar to authenticate later requests
 	if cookies := resp.Cookies(); len(cookies) > 0 {
-		cookieURL, _ := url.Parse("http://localhost:8080")
+		cookieURL, _ := url.Parse(client.URL)
 		client.Jar.SetCookies(cookieURL, cookies)
 		// create a new client with the cookie jar and replace the old one
 		// so that all our later requests are authenticated
@@ -306,15 +305,31 @@ func (client *Client) BuildInfo() (buildInfo BuildInfo, err error) {
 func (client *Client) Preferences() (prefs Preferences, err error) {
 	resp, err := client.get("api/v2/app/preferences", nil)
 	if err != nil {
-		return prefs, err
+		return
 	}
-	json.NewDecoder(resp.Body).Decode(&prefs)
-	return prefs, err
+	err = json.NewDecoder(resp.Body).Decode(&prefs)
+	return
+}
+func (client *Client) PreferencesRaw() (prefs string, err error) {
+	resp, err := client.get("api/v2/app/preferences", nil)
+	if err != nil {
+		return
+	}
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	prefs = string(buf)
+	return
 }
 
 // SetPreferences of the qbittorrent client
-func (client *Client) SetPreferences() (err error) {
-	resp, err := client.post("api/v2/app/setPreferences", nil)
+func (client *Client) SetPreferences(opts map[string]any) (err error) {
+	jsonString, err := json.Marshal(opts)
+	resp, err := client.post("api/v2/app/setPreferences", map[string]string{"json": string(jsonString)})
+	if err != nil {
+		return
+	}
 	switch sc := (*resp).StatusCode; sc {
 	case 200:
 		return nil

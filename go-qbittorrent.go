@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/avissian/go-qbittorrent/qbt"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
@@ -62,5 +62,22 @@ func main() {
 		} else {
 			fmt.Println("No torrents found")
 		}
+	}
+
+	// *****************
+	// SET PREFERENCES *
+	// *****************
+	opts := map[string]any{
+		"queueing_enabled":         true,
+		"max_active_downloads":     10,
+		"max_active_torrents":      -1,
+		"dont_count_slow_torrents": false,
+	}
+
+	err = qb.SetPreferences(opts)
+	if err != nil {
+		fmt.Println("[-] Can't set preferences")
+	} else {
+		fmt.Println("[+] Preferences are set")
 	}
 }
