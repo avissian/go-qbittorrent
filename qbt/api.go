@@ -602,7 +602,7 @@ func (client *Client) Pause(hashes []string) (err error) {
 func (client *Client) Resume(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	var resp *http.Response
-	if client.Version[5] >= '5' {
+	if client.Version[1] >= '5' {
 		resp, err = client.post("api/v2/torrents/start", opts)
 	} else {
 		resp, err = client.post("api/v2/torrents/resume", opts)
