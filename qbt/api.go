@@ -36,6 +36,7 @@ type Client struct {
 	Authenticated bool
 	Jar           http.CookieJar
 	Rid           uint64
+	Version       string
 }
 
 // NewClient creates a new client connection to qbittorrent
@@ -237,6 +238,11 @@ func (client *Client) Login(opts LoginOptions) (err error) {
 		}
 	} else {
 		return wrapper.Errorf("Could not get cookie")
+	}
+
+	client.Version, err = client.ApplicationVersion()
+	if err != nil {
+		return
 	}
 
 	// change authentication status, so we know were authenticated in later requests
@@ -572,9 +578,14 @@ func (client *Client) TorrentPieceHashes(hash string) (hashes []string, err erro
 }
 
 // Pause torrents
-func (client *Client) Pause(hashes []string) error {
+func (client *Client) Pause(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
-	resp, err := client.post("api/v2/torrents/pause", opts)
+	var resp *http.Response
+	if client.Version[1] >= '5' {
+		resp, err = client.post("api/v2/torrents/stop", opts)
+	} else {
+		resp, err = client.post("api/v2/torrents/pause", opts)
+	}
 	if err != nil {
 		return err
 	}
@@ -590,7 +601,12 @@ func (client *Client) Pause(hashes []string) error {
 // Resume torrents
 func (client *Client) Resume(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
-	resp, err := client.post("api/v2/torrents/resume", opts)
+	var resp *http.Response
+	if client.Version[0] == '5' {
+		resp, err = client.post("api/v2/torrents/start", opts)
+	} else {
+		resp, err = client.post("api/v2/torrents/resume", opts)
+	}
 	if err != nil {
 		return
 	}
