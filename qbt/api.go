@@ -360,7 +360,7 @@ func (client *Client) DefaultSavePath() (path string, err error) {
 
 // Shutdown shuts down the qbittorrent client
 func (client *Client) Shutdown() (err error) {
-	resp, err := client.get("api/v2/app/shutdown", nil)
+	resp, err := client.post("api/v2/app/shutdown", nil)
 
 	// return true if successful
 	switch sc := (*resp).StatusCode; sc {
@@ -417,7 +417,7 @@ func (client *Client) AltSpeedLimitsEnabled() (mode bool, err error) {
 
 // ToggleAltSpeedLimits returns info you usually see in qBt status bar.
 func (client *Client) ToggleAltSpeedLimits() (err error) {
-	resp, err := client.get("api/v2/transfer/toggleSpeedLimitsMode", nil)
+	resp, err := client.post("api/v2/transfer/toggleSpeedLimitsMode", nil)
 	if err != nil {
 		return
 	}
@@ -442,7 +442,7 @@ func (client *Client) DlLimit() (dlLimit int, err error) {
 // SetDlLimit returns info you usually see in qBt status bar.
 func (client *Client) SetDlLimit(limit int) (err error) {
 	params := map[string]string{"limit": strconv.Itoa(limit)}
-	resp, err := client.get("api/v2/transfer/setDownloadLimit", params)
+	resp, err := client.post("api/v2/transfer/setDownloadLimit", params)
 	if err != nil {
 		return
 	}
@@ -467,7 +467,7 @@ func (client *Client) UlLimit() (ulLimit int, err error) {
 // SetUlLimit returns info you usually see in qBt status bar.
 func (client *Client) SetUlLimit(limit int) (err error) {
 	params := map[string]string{"limit": strconv.Itoa(limit)}
-	resp, err := client.get("api/v2/transfer/setUploadLimit", params)
+	resp, err := client.post("api/v2/transfer/setUploadLimit", params)
 	if err != nil {
 		return
 	}
@@ -655,7 +655,7 @@ func (client *Client) Recheck(hashes []string) (err error) {
 // Reannounce torrents
 func (client *Client) Reannounce(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
-	resp, err := client.get("api/v2/torrents/reannounce", opts)
+	resp, err := client.post("api/v2/torrents/reannounce", opts)
 	if err != nil {
 		return
 	}
@@ -795,11 +795,11 @@ func (client *Client) AddTrackers(hash string, trackers []string) error {
 // EditTracker on a torrent
 func (client *Client) EditTracker(hash string, origURL string, newURL string) error {
 	params := map[string]string{
-		"hash":    hash,
-		"origUrl": origURL,
-		"newUrl":  newURL,
+		"hash":   strings.ToLower(hash),
+		"url":    origURL,
+		"newUrl": newURL,
 	}
-	resp, err := client.get("api/v2/torrents/editTracker", params)
+	resp, err := client.post("api/v2/torrents/editTracker", params)
 	if err != nil {
 		return err
 	}
@@ -818,10 +818,10 @@ func (client *Client) EditTracker(hash string, origURL string, newURL string) er
 // RemoveTrackers from a torrent
 func (client *Client) RemoveTrackers(hash string, trackers []string) error {
 	params := map[string]string{
-		"hash": hash,
+		"hash": strings.ToLower(hash),
 		"urls": delimit(trackers, "|"),
 	}
-	resp, err := client.get("api/v2/torrents/removeTrackers", params)
+	resp, err := client.post("api/v2/torrents/removeTrackers", params)
 	if err != nil {
 		return err
 	}
@@ -1261,7 +1261,7 @@ func (client *Client) SetAutoManagement(hashes []string, enable bool) (err error
 // ToggleSequentialDownload for a list of torrents
 func (client *Client) ToggleSequentialDownload(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
-	resp, err := client.get("api/v2/torrents/toggleSequentialDownload", opts)
+	resp, err := client.post("api/v2/torrents/toggleSequentialDownload", opts)
 	if err != nil {
 		return
 	}
@@ -1276,7 +1276,7 @@ func (client *Client) ToggleSequentialDownload(hashes []string) (err error) {
 // ToggleFirstLastPiecePriority for a list of torrents
 func (client *Client) ToggleFirstLastPiecePriority(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
-	resp, err := client.get("api/v2/torrents/toggleFirstLastPiecePrio", opts)
+	resp, err := client.post("api/v2/torrents/toggleFirstLastPiecePrio", opts)
 	if err != nil {
 		return
 	}
