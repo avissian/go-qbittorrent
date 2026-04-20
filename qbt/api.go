@@ -206,6 +206,35 @@ func (client *Client) postMultipartFile(endpoint string, fileName string, opts m
 	return resp, nil
 }
 
+// postMultipartFiles uploads multiple local files as multipart/form-data (field name "torrents", filename from path.Base).
+func (client *Client) postMultipartFiles(endpoint string, filePaths []string, opts map[string]string) (*http.Response, error) {
+	var buffer bytes.Buffer
+	writer := multipart.NewWriter(&buffer)
+	if err := writeOptions(writer, opts); err != nil {
+		return nil, wrapper.Wrap(err, "failed to write options")
+	}
+	for _, fp := range filePaths {
+		file, err := os.Open(fp)
+		if err != nil {
+			return nil, wrapper.Wrap(err, "error opening file")
+		}
+		formWriter, err := writer.CreateFormFile("torrents", path.Base(fp))
+		if err != nil {
+			file.Close()
+			return nil, wrapper.Wrap(err, "error adding file")
+		}
+		if _, err = io.Copy(formWriter, file); err != nil {
+			file.Close()
+			return nil, wrapper.Wrap(err, "error copying file")
+		}
+		file.Close()
+	}
+	if err := writer.Close(); err != nil {
+		return nil, wrapper.Wrap(err, "failed to close writer")
+	}
+	return client.postMultipart(endpoint, buffer, writer.FormDataContentType())
+}
+
 // Application endpoints
 
 // Login logs you in to the qbittorrent client
@@ -371,6 +400,169 @@ func (client *Client) Shutdown() (err error) {
 	}
 }
 
+// ProcessInfo returns process-related information (api/v2/app/processInfo).
+func (client *Client) ProcessInfo() (info ProcessInfo, err error) {
+	resp, err := client.get("api/v2/app/processInfo", nil)
+	if err != nil {
+		return info, err
+	}
+	defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&info)
+	return info, err
+}
+
+// SendTestEmail asks the application to send a test email (api/v2/app/sendTestEmail).
+func (client *Client) SendTestEmail() error {
+	resp, err := client.post("api/v2/app/sendTestEmail", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		return wrapper.Errorf("sendTestEmail: unexpected status %v", sc)
+	}
+}
+
+// GetDirectoryContent lists directory entries (api/v2/app/getDirectoryContent). Decode JSON as []string or []DirectoryContentFileMetadata depending on withMetadata.
+func (client *Client) GetDirectoryContent(dirPath string, mode DirectoryContentMode, withMetadata bool) (json.RawMessage, error) {
+	params := map[string]string{"dirPath": dirPath}
+	if mode != "" {
+		params["mode"] = string(mode)
+	}
+	if withMetadata {
+		params["withMetadata"] = "true"
+	}
+	resp, err := client.get("api/v2/app/getDirectoryContent", params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("getDirectoryContent: status %v: %s", resp.StatusCode, string(body))
+	}
+	return json.RawMessage(body), nil
+}
+
+// GetFreeSpaceAtPath returns free disk space in bytes at path (api/v2/app/getFreeSpaceAtPath).
+func (client *Client) GetFreeSpaceAtPath(p string) (int64, error) {
+	resp, err := client.get("api/v2/app/getFreeSpaceAtPath", map[string]string{"path": p})
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode != 200 {
+		return 0, wrapper.Errorf("getFreeSpaceAtPath: status %v: %s", resp.StatusCode, string(body))
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(string(body)), 10, 64)
+	if err != nil {
+		return 0, wrapper.Wrap(err, "parse free space")
+	}
+	return n, nil
+}
+
+// Cookies returns HTTP cookies used by the internal download manager (api/v2/app/cookies).
+func (client *Client) Cookies() ([]AppCookie, error) {
+	resp, err := client.get("api/v2/app/cookies", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out []AppCookie
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// SetCookies replaces download-manager cookies (api/v2/app/setCookies). Pass JSON array of cookie objects (same shape as AppCookie).
+func (client *Client) SetCookies(cookiesJSON string) error {
+	resp, err := client.post("api/v2/app/setCookies", map[string]string{"cookies": cookiesJSON})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setCookies: status %v: %s", sc, string(body))
+	}
+}
+
+// RotateAPIKey generates a new WebUI API key (api/v2/app/rotateAPIKey).
+func (client *Client) RotateAPIKey() (apiKey string, err error) {
+	resp, err := client.post("api/v2/app/rotateAPIKey", nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", wrapper.Errorf("rotateAPIKey: status %v: %s", resp.StatusCode, string(body))
+	}
+	var out struct {
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	return out.APIKey, nil
+}
+
+// DeleteAPIKey removes the WebUI API key (api/v2/app/deleteAPIKey).
+func (client *Client) DeleteAPIKey() error {
+	resp, err := client.post("api/v2/app/deleteAPIKey", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("deleteAPIKey: status %v: %s", sc, string(body))
+	}
+}
+
+// NetworkInterfaceList returns network interfaces (api/v2/app/networkInterfaceList).
+func (client *Client) NetworkInterfaceList() ([]NetworkInterface, error) {
+	resp, err := client.get("api/v2/app/networkInterfaceList", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out []NetworkInterface
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// NetworkInterfaceAddressList returns IP addresses for iface (empty iface = all addresses) (api/v2/app/networkInterfaceAddressList).
+func (client *Client) NetworkInterfaceAddressList(iface string) ([]string, error) {
+	params := map[string]string{}
+	if iface != "" {
+		params["iface"] = iface
+	}
+	resp, err := client.get("api/v2/app/networkInterfaceAddressList", params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out []string
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
 // Log Endpoints
 
 // Logs of the qbittorrent client
@@ -426,6 +618,22 @@ func (client *Client) ToggleAltSpeedLimits() (err error) {
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
+	}
+}
+
+// SetSpeedLimitsMode sets alternative speed limits on (mode != 0) or off (mode == 0) (api/v2/transfer/setSpeedLimitsMode).
+func (client *Client) SetSpeedLimitsMode(mode int) error {
+	resp, err := client.post("api/v2/transfer/setSpeedLimitsMode", map[string]string{"mode": strconv.Itoa(mode)})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setSpeedLimitsMode: status %v: %s", sc, string(body))
 	}
 }
 
@@ -1323,6 +1531,405 @@ func (client *Client) SetSuperSeeding(hashes []string, value bool) (err error) {
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
 	}
 }
+
+// ClientDataLoad returns stored WebUI client data (api/v2/clientdata/load). If keys is empty, all keys are returned.
+func (client *Client) ClientDataLoad(keys []string) (json.RawMessage, error) {
+	if len(keys) == 0 {
+		resp, err := client.get("api/v2/clientdata/load", nil)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			return nil, wrapper.Errorf("clientdata/load: status %v: %s", resp.StatusCode, string(body))
+		}
+		return json.RawMessage(body), nil
+	}
+	keysJSON, err := json.Marshal(keys)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.post("api/v2/clientdata/load", map[string]string{"keys": string(keysJSON)})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("clientdata/load: status %v: %s", resp.StatusCode, string(body))
+	}
+	return json.RawMessage(body), nil
+}
+
+// ClientDataStore persists WebUI client data (api/v2/clientdata/store). dataJSON must be a JSON object.
+func (client *Client) ClientDataStore(dataJSON string) error {
+	resp, err := client.post("api/v2/clientdata/store", map[string]string{"data": dataJSON})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("clientdata/store: status %v: %s", sc, string(body))
+	}
+}
+
+// TorrentsCount returns the number of torrents in the session (api/v2/torrents/count).
+func (client *Client) TorrentsCount() (int, error) {
+	resp, err := client.get("api/v2/torrents/count", nil)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode != 200 {
+		return 0, wrapper.Errorf("torrents/count: status %v: %s", resp.StatusCode, string(body))
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(body)))
+	if err != nil {
+		return 0, wrapper.Wrap(err, "parse torrent count")
+	}
+	return n, nil
+}
+
+// TorrentPieceAvailability returns per-piece peer availability counts (api/v2/torrents/pieceAvailability).
+func (client *Client) TorrentPieceAvailability(hash string) ([]int, error) {
+	resp, err := client.get("api/v2/torrents/pieceAvailability", map[string]string{"hash": strings.ToLower(hash)})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out []int
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// AddWebSeeds adds HTTP(S) seeds to a torrent (api/v2/torrents/addWebSeeds).
+func (client *Client) AddWebSeeds(hash string, urls []string) error {
+	opts := map[string]string{
+		"hash": strings.ToLower(hash),
+		"urls": delimit(urls, "|"),
+	}
+	resp, err := client.post("api/v2/torrents/addWebSeeds", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("addWebSeeds: status %v: %s", sc, string(body))
+	}
+}
+
+// EditWebSeed replaces one web seed URL with another (api/v2/torrents/editWebSeed).
+func (client *Client) EditWebSeed(hash, origURL, newURL string) error {
+	opts := map[string]string{
+		"hash":    strings.ToLower(hash),
+		"origUrl": origURL,
+		"newUrl":  newURL,
+	}
+	resp, err := client.post("api/v2/torrents/editWebSeed", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("editWebSeed: status %v: %s", sc, string(body))
+	}
+}
+
+// RemoveWebSeeds removes web seeds from a torrent (api/v2/torrents/removeWebSeeds).
+func (client *Client) RemoveWebSeeds(hash string, urls []string) error {
+	opts := map[string]string{
+		"hash": strings.ToLower(hash),
+		"urls": delimit(urls, "|"),
+	}
+	resp, err := client.post("api/v2/torrents/removeWebSeeds", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("removeWebSeeds: status %v: %s", sc, string(body))
+	}
+}
+
+// AddPeers attempts to connect to peers for the given torrents (api/v2/torrents/addPeers).
+func (client *Client) AddPeers(hashes []string, peers []string) (map[string]AddPeersResult, error) {
+	opts := map[string]string{
+		"hashes": delimit(hashes, "|"),
+		"peers":  delimit(peers, "|"),
+	}
+	resp, err := client.post("api/v2/torrents/addPeers", opts)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("addPeers: status %v: %s", resp.StatusCode, string(body))
+	}
+	var out map[string]AddPeersResult
+	err = json.Unmarshal(body, &out)
+	return out, err
+}
+
+// SetTorrentSavePath sets the torrent content path when Auto TMM is disabled (api/v2/torrents/setSavePath). id is the torrent hash/id.
+func (client *Client) SetTorrentSavePath(ids []string, savePath string) error {
+	opts := map[string]string{
+		"id":   delimit(ids, "|"),
+		"path": savePath,
+	}
+	resp, err := client.post("api/v2/torrents/setSavePath", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setSavePath: status %v: %s", sc, string(body))
+	}
+}
+
+// SetTorrentDownloadPath sets the incomplete-download path when Auto TMM is disabled (api/v2/torrents/setDownloadPath).
+func (client *Client) SetTorrentDownloadPath(ids []string, downloadPath string) error {
+	opts := map[string]string{
+		"id":   delimit(ids, "|"),
+		"path": downloadPath,
+	}
+	resp, err := client.post("api/v2/torrents/setDownloadPath", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setDownloadPath: status %v: %s", sc, string(body))
+	}
+}
+
+// SetTorrentComment sets the comment for one or more torrents (api/v2/torrents/setComment).
+func (client *Client) SetTorrentComment(hashes []string, comment string) error {
+	opts := map[string]string{
+		"hashes":  delimit(hashes, "|"),
+		"comment": comment,
+	}
+	resp, err := client.post("api/v2/torrents/setComment", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setComment: status %v: %s", sc, string(body))
+	}
+}
+
+// SetTorrentTags replaces the full tag set for torrents (api/v2/torrents/setTags).
+func (client *Client) SetTorrentTags(hashes []string, tags []string) error {
+	opts := map[string]string{
+		"hashes": delimit(hashes, "|"),
+		"tags":   delimit(tags, ","),
+	}
+	resp, err := client.post("api/v2/torrents/setTags", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setTags: status %v: %s", sc, string(body))
+	}
+}
+
+// RenameTorrentFile renames a file inside a torrent (api/v2/torrents/renameFile).
+func (client *Client) RenameTorrentFile(hash, oldPath, newPath string) error {
+	opts := map[string]string{
+		"hash":    strings.ToLower(hash),
+		"oldPath": oldPath,
+		"newPath": newPath,
+	}
+	resp, err := client.post("api/v2/torrents/renameFile", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("renameFile: status %v: %s", sc, string(body))
+	}
+}
+
+// RenameTorrentFolder renames a folder inside a torrent (api/v2/torrents/renameFolder).
+func (client *Client) RenameTorrentFolder(hash, oldPath, newPath string) error {
+	opts := map[string]string{
+		"hash":    strings.ToLower(hash),
+		"oldPath": oldPath,
+		"newPath": newPath,
+	}
+	resp, err := client.post("api/v2/torrents/renameFolder", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("renameFolder: status %v: %s", sc, string(body))
+	}
+}
+
+// ExportTorrent returns the .torrent file bytes for a torrent (api/v2/torrents/export).
+func (client *Client) ExportTorrent(hash string) ([]byte, error) {
+	resp, err := client.post("api/v2/torrents/export", map[string]string{"hash": strings.ToLower(hash)})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("export: status %v: %s", resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
+// TorrentSSLParameters returns SSL parameters for a torrent (api/v2/torrents/SSLParameters).
+func (client *Client) TorrentSSLParameters(hash string) (TorrentSSLParameters, error) {
+	var out TorrentSSLParameters
+	resp, err := client.get("api/v2/torrents/SSLParameters", map[string]string{"hash": strings.ToLower(hash)})
+	if err != nil {
+		return out, err
+	}
+	defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// SetTorrentSSLParameters sets SSL certificate material for a torrent (api/v2/torrents/setSSLParameters).
+func (client *Client) SetTorrentSSLParameters(hash string, p TorrentSSLParameters) error {
+	opts := map[string]string{
+		"hash":            strings.ToLower(hash),
+		"ssl_certificate": p.SSLCertificate,
+		"ssl_private_key": p.SSLPrivateKey,
+		"ssl_dh_params":   p.SSLDhParams,
+	}
+	resp, err := client.post("api/v2/torrents/setSSLParameters", opts)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setSSLParameters: status %v: %s", sc, string(body))
+	}
+}
+
+// FetchTorrentMetadata fetches or resolves torrent metadata by magnet/URL/hash (api/v2/torrents/fetchMetadata).
+// On 202 Accepted the metadata is not ready yet; body may contain a placeholder JSON object.
+func (client *Client) FetchTorrentMetadata(source string, downloader string) (body []byte, statusCode int, err error) {
+	opts := map[string]string{"source": source}
+	if downloader != "" {
+		opts["downloader"] = downloader
+	}
+	resp, err := client.post("api/v2/torrents/fetchMetadata", opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return b, resp.StatusCode, nil
+}
+
+// ParseTorrentMetadata parses local .torrent files and returns serialized metadata (api/v2/torrents/parseMetadata).
+func (client *Client) ParseTorrentMetadata(filePaths []string) (json.RawMessage, error) {
+	if len(filePaths) == 0 {
+		return nil, wrapper.Errorf("at least one torrent file path is required")
+	}
+	resp, err := client.postMultipartFiles("api/v2/torrents/parseMetadata", filePaths, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("parseMetadata: status %v: %s", resp.StatusCode, string(b))
+	}
+	return json.RawMessage(b), nil
+}
+
+// SaveTorrentMetadata exports a previously resolved metadata entry to a .torrent buffer (api/v2/torrents/saveMetadata).
+func (client *Client) SaveTorrentMetadata(source string) ([]byte, error) {
+	resp, err := client.post("api/v2/torrents/saveMetadata", map[string]string{"source": source})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, wrapper.Errorf("saveMetadata: status %v: %s", resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
 func (client *Client) BanPeers(peers []string) (err error) {
 	opts := map[string]string{
 		"peers": delimit(peers, "|"),
@@ -1390,5 +1997,3 @@ func (client *Client) MainData(rid uint64) (sync Sync, err error) {
 	client.Rid = sync.Rid
 	return
 }
-
-// TODO: Transfer Endpoints

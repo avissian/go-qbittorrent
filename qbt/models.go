@@ -523,3 +523,55 @@ const (
 	High_priority    PriorityValues = 6
 	Maximal_priority PriorityValues = 7
 )
+
+// ProcessInfo is returned by api/v2/app/processInfo.
+type ProcessInfo struct {
+	LaunchTime int64 `json:"launch_time"`
+}
+
+// NetworkInterface is an entry from api/v2/app/networkInterfaceList.
+type NetworkInterface struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// AppCookie is one cookie from api/v2/app/cookies.
+type AppCookie struct {
+	Name           string `json:"name"`
+	Domain         string `json:"domain"`
+	Path           string `json:"path"`
+	Value          string `json:"value"`
+	ExpirationDate int64  `json:"expirationDate"`
+}
+
+// DirectoryContentMode filters entries from api/v2/app/getDirectoryContent (param mode).
+type DirectoryContentMode string
+
+const (
+	DirectoryContentAll   DirectoryContentMode = "all"
+	DirectoryContentDirs  DirectoryContentMode = "dirs"
+	DirectoryContentFiles DirectoryContentMode = "files"
+)
+
+// DirectoryContentFileMetadata is one element when withMetadata=true on getDirectoryContent.
+type DirectoryContentFileMetadata struct {
+	Name                 string `json:"name"`
+	Type                 string `json:"type"` // "dir" or "file"
+	Size                 int64  `json:"size,omitempty"`
+	CreationDate         int64  `json:"creation_date"`
+	LastAccessDate       int64  `json:"last_access_date"`
+	LastModificationDate int64  `json:"last_modification_date"`
+}
+
+// TorrentSSLParameters from api/v2/torrents/SSLParameters and setSSLParameters.
+type TorrentSSLParameters struct {
+	SSLCertificate string `json:"ssl_certificate"`
+	SSLPrivateKey  string `json:"ssl_private_key"`
+	SSLDhParams    string `json:"ssl_dh_params"`
+}
+
+// AddPeersResult is the per-torrent object from api/v2/torrents/addPeers.
+type AddPeersResult struct {
+	Added  int `json:"added"`
+	Failed int `json:"failed"`
+}
