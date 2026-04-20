@@ -5,103 +5,158 @@ API v2.9.3 (qBittorrent 4.6.2)
 https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#api-v283
 */
 
-// Torrent api/v2/torrents/properties
+// Torrent is api/v2/torrents/properties (TorrentsController::propertiesAction).
 type Torrent struct {
-	SavePath           string  `json:"save_path"`
-	CreationDate       int64   `json:"creation_date"`
-	PieceSize          int64   `json:"piece_size"`
-	Comment            string  `json:"comment"`
-	TotalWasted        int64   `json:"total_wasted"`
-	TotalUl            int64   `json:"total_uploaded"`
-	TotalUlSession     int64   `json:"total_uploaded_session"`
-	TotalDl            int64   `json:"total_downloaded"`
-	TotalDlSession     int64   `json:"total_downloaded_session"`
-	UpLimit            int64   `json:"up_limit"`
-	DlLimit            int64   `json:"dl_limit"`
+	Hash               string  `json:"hash"`
+	InfohashV1         string  `json:"infohash_v1"`
+	InfohashV2         string  `json:"infohash_v2"`
+	Name               string  `json:"name"`
 	TimeElapsed        int64   `json:"time_elapsed"`
 	SeedingTime        int64   `json:"seeding_time"`
+	Eta                int64   `json:"eta"`
 	NbConnections      int     `json:"nb_connections"`
 	NbConnectionsLimit int     `json:"nb_connections_limit"`
-	ShareRatio         float64 `json:"share_ratio"`
-	AdditionDate       int64   `json:"addition_date"`
-	CompletionDate     int64   `json:"completion_date"`
-	CreatedBy          string  `json:"created_by"`
-	DlSpeedAvg         int64   `json:"dl_speed_avg"`
+	TotalDownloaded    int64   `json:"total_downloaded"`
+	TotalDlSession     int64   `json:"total_downloaded_session"`
+	TotalUploaded      int64   `json:"total_uploaded"`
+	TotalUlSession     int64   `json:"total_uploaded_session"`
 	DlSpeed            int64   `json:"dl_speed"`
-	Eta                int64   `json:"eta"`
-	LastSeen           int64   `json:"last_seen"`
-	Peers              int     `json:"peers"`
-	PeersTotal         int     `json:"peers_total"`
-	PiecesHave         int     `json:"pieces_have"`
-	PiecesNum          int     `json:"pieces_num"`
-	Reannounce         int     `json:"reannounce"`
+	DlSpeedAvg         int64   `json:"dl_speed_avg"`
+	UpSpeed            int64   `json:"up_speed"`
+	UpSpeedAvg         int64   `json:"up_speed_avg"`
+	DlLimit            int64   `json:"dl_limit"`
+	UpLimit            int64   `json:"up_limit"`
+	TotalWasted        int64   `json:"total_wasted"`
 	Seeds              int     `json:"seeds"`
 	SeedsTotal         int     `json:"seeds_total"`
-	TotalSize          int     `json:"total_size"`
-	UpSpeedAvg         int64   `json:"up_speed_avg"`
-	UpSpeed            int64   `json:"up_speed"`
+	Peers              int     `json:"peers"`
+	PeersTotal         int     `json:"peers_total"`
+	ShareRatio         float64 `json:"share_ratio"`
+	Popularity         float64 `json:"popularity"`
+	Availability       float64 `json:"availability"`
+	Reannounce         int64   `json:"reannounce"`
+	TotalSize          int64   `json:"total_size"`
+	PiecesNum          int     `json:"pieces_num"`
+	PieceSize          int64   `json:"piece_size"`
+	PiecesHave         int     `json:"pieces_have"`
+	CreatedBy          string  `json:"created_by"`
+	IsPrivate          bool    `json:"is_private"`
+	Private            *bool   `json:"private"`
+	AdditionDate       int64   `json:"addition_date"`
+	LastSeen           int64   `json:"last_seen"`
+	CompletionDate     int64   `json:"completion_date"`
+	CreationDate       int64   `json:"creation_date"`
+	SavePath           string  `json:"save_path"`
+	DownloadPath       string  `json:"download_path"`
+	Comment            string  `json:"comment"`
+	HasMetadata        bool    `json:"has_metadata"`
+	Progress           float64 `json:"progress"`
 }
 
-// TorrentInfo api/v2/torrents/info
+// TorrentInfo is one entry from api/v2/torrents/info and sync/maindata torrents
+// (see serialize() in serialize/serialize_torrent.cpp). Extra keys may appear in sync diffs only.
 type TorrentInfo struct {
-	AddedOn           int64   `json:"added_on"`
-	AmountLeft        int64   `json:"amount_left"`
-	AutoTmm           bool    `json:"auto_tmm"`
-	Availability      float64 `json:"availability"`
-	Category          string  `json:"category"`
-	Completed         int64   `json:"completed"`
-	CompletionOn      int64   `json:"completion_on"`
-	ContentPath       string  `json:"content_path"`
-	DlLimit           int64   `json:"dl_limit"`
-	Dlspeed           int64   `json:"dlspeed"`
-	Downloaded        int64   `json:"downloaded"`
-	DownloadedSession int64   `json:"downloaded_session"`
-	Eta               int64   `json:"eta"`
-	FLPiecePrio       bool    `json:"f_l_piece_prio"`
-	ForceStart        bool    `json:"force_start"`
-	Hash              string  `json:"hash"`
-	LastActivity      int64   `json:"last_activity"`
-	MagnetURI         string  `json:"magnet_uri"`
-	MaxRatio          float64 `json:"max_ratio"`
-	MaxSeedingTime    int64   `json:"max_seeding_time"`
-	Name              string  `json:"name"`
-	NumComplete       int64   `json:"num_complete"`
-	NumIncomplete     int64   `json:"num_incomplete"`
-	NumLeechs         int64   `json:"num_leechs"`
-	NumSeeds          int64   `json:"num_seeds"`
-	Priority          int64   `json:"priority"`
-	Progress          float64 `json:"progress"`
-	Ratio             float64 `json:"ratio"`
-	RatioLimit        float64 `json:"ratio_limit"`
-	SavePath          string  `json:"save_path"`
-	SeedingTime       int64   `json:"seeding_time"`
-	SeedingTimeLimit  int64   `json:"seeding_time_limit"`
-	SeenComplete      int64   `json:"seen_complete"`
-	SeqDl             bool    `json:"seq_dl"`
-	Size              int64   `json:"size"`
-	State             string  `json:"state"`
-	SuperSeeding      bool    `json:"super_seeding"`
-	Tags              string  `json:"tags"`
-	TimeActive        int64   `json:"time_active"`
-	TotalSize         int64   `json:"total_size"`
-	Tracker           string  `json:"tracker"`
-	TrackersCount     int64   `json:"trackers_count"` // not provided in the API docs!!!
-	UpLimit           int64   `json:"up_limit"`
-	Uploaded          int64   `json:"uploaded"`
-	UploadedSession   int64   `json:"uploaded_session"`
-	Upspeed           int64   `json:"upspeed"`
+	Hash                       string  `json:"hash"`
+	InfohashV1                 string  `json:"infohash_v1"`
+	InfohashV2                 string  `json:"infohash_v2"`
+	Name                       string  `json:"name"`
+	HasMetadata                bool    `json:"has_metadata"`
+	CreatedBy                  string  `json:"created_by"`
+	CreationDate               int64   `json:"creation_date"`
+	Private                    *bool   `json:"private"`
+	TotalSize                  int64   `json:"total_size"`
+	PiecesNum                  int     `json:"pieces_num"`
+	PieceSize                  int64   `json:"piece_size"`
+	MagnetURI                  string  `json:"magnet_uri"`
+	Size                       int64   `json:"size"`
+	Progress                   float64 `json:"progress"`
+	TotalWasted                int64   `json:"total_wasted"`
+	PiecesHave                 int     `json:"pieces_have"`
+	Dlspeed                    int64   `json:"dlspeed"`
+	Upspeed                    int64   `json:"upspeed"`
+	Priority                   int     `json:"priority"`
+	NumSeeds                   int     `json:"num_seeds"`
+	NumComplete                int64   `json:"num_complete"`
+	NumLeechs                  int     `json:"num_leechs"`
+	NumIncomplete              int64   `json:"num_incomplete"`
+	State                      string  `json:"state"`
+	Eta                        int64   `json:"eta"`
+	SeqDl                      bool    `json:"seq_dl"`
+	FLPiecePrio                bool    `json:"f_l_piece_prio"`
+	Category                   string  `json:"category"`
+	Tags                       string  `json:"tags"`
+	SuperSeeding               bool    `json:"super_seeding"`
+	ForceStart                 bool    `json:"force_start"`
+	SavePath                   string  `json:"save_path"`
+	DownloadPath               string  `json:"download_path"`
+	ContentPath                string  `json:"content_path"`
+	RootPath                   string  `json:"root_path"`
+	AddedOn                    int64   `json:"added_on"`
+	CompletionOn               int64   `json:"completion_on"`
+	Tracker                    string  `json:"tracker"`
+	TrackersCount              int     `json:"trackers_count"`
+	DlLimit                    int64   `json:"dl_limit"`
+	UpLimit                    int64   `json:"up_limit"`
+	Downloaded                 int64   `json:"downloaded"`
+	Uploaded                   int64   `json:"uploaded"`
+	DownloadedSession          int64   `json:"downloaded_session"`
+	UploadedSession            int64   `json:"uploaded_session"`
+	AmountLeft                 int64   `json:"amount_left"`
+	Completed                  int64   `json:"completed"`
+	ConnectionsCount           int     `json:"connections_count"`
+	ConnectionsLimit           int     `json:"connections_limit"`
+	MaxRatio                   float64 `json:"max_ratio"`
+	MaxSeedingTime             int64   `json:"max_seeding_time"`
+	MaxInactiveSeedingTime     int64   `json:"max_inactive_seeding_time"`
+	Ratio                      float64 `json:"ratio"`
+	RatioLimit                 float64 `json:"ratio_limit"`
+	Popularity                 float64 `json:"popularity"`
+	SeedingTimeLimit           int64   `json:"seeding_time_limit"`
+	InactiveSeedingTimeLimit   int64   `json:"inactive_seeding_time_limit"`
+	ShareLimitsMode            string  `json:"share_limits_mode"`
+	ShareLimitAction           string  `json:"share_limit_action"`
+	SeenComplete               int64   `json:"seen_complete"`
+	AutoTmm                    bool    `json:"auto_tmm"`
+	TimeActive                 int64   `json:"time_active"`
+	SeedingTime                int64   `json:"seeding_time"`
+	LastActivity               int64   `json:"last_activity"`
+	Availability               float64 `json:"availability"`
+	Reannounce                 int64   `json:"reannounce"`
+	Comment                    string  `json:"comment"`
+	HasTrackerWarning     bool `json:"has_tracker_warning"`
+	HasTrackerError       bool `json:"has_tracker_error"`
+	HasOtherAnnounceError bool `json:"has_other_announce_error"`
 }
 
-// Tracker holds a tracker object from qbittorrent
+// TrackerEndpoint is one element of tracker "endpoints" (TorrentsController::getTrackers).
+type TrackerEndpoint struct {
+	Name           string `json:"name"`
+	Updating       bool   `json:"updating"`
+	Status         int    `json:"status"`
+	Msg            string `json:"msg"`
+	BtVersion      int    `json:"bt_version"`
+	NumPeers       int    `json:"num_peers"`
+	NumSeeds       int    `json:"num_seeds"`
+	NumLeeches     int    `json:"num_leeches"`
+	NumDownloaded  int    `json:"num_downloaded"`
+	NextAnnounce   int64  `json:"next_announce"`
+	MinAnnounce    int64  `json:"min_announce"`
+}
+
+// Tracker is one tracker row from api/v2/torrents/trackers.
 type Tracker struct {
-	URL           string `json:"url"`
-	Status        uint8  `json:"status"`
-	Tier          int    `json:"tier"`
-	NumPeers      int    `json:"num_peers"`
-	NumSeeds      int    `json:"num_seeds"`
-	NumLeeches    int    `json:"num_leeches"`
-	NumDownloaded int    `json:"num_downloaded"`
-	Msg           string `json:"msg"`
+	URL           string            `json:"url"`
+	Tier          int               `json:"tier"`
+	Updating      bool              `json:"updating"`
+	Status        int               `json:"status"`
+	Msg           string            `json:"msg"`
+	NumPeers      int               `json:"num_peers"`
+	NumSeeds      int               `json:"num_seeds"`
+	NumLeeches    int               `json:"num_leeches"`
+	NumDownloaded int               `json:"num_downloaded"`
+	NextAnnounce  int64             `json:"next_announce"`
+	MinAnnounce   int64             `json:"min_announce"`
+	Endpoints     []TrackerEndpoint `json:"endpoints"`
 }
 
 // WebSeed holds a webseed object from qbittorrent
@@ -109,62 +164,62 @@ type WebSeed struct {
 	URL string `json:"url"`
 }
 
-// TorrentFile holds a torrent file object from qbittorrent
+// TorrentFile is one entry from api/v2/torrents/files (TorrentsController::getFiles).
 type TorrentFile struct {
-	Index        int     `json:"index"`
-	Name         string  `json:"name"`
-	Size         int64   `json:"size"`
-	Progress     float64 `json:"progress"`
-	Priority     int8    `json:"priority"`
-	IsSeed       bool    `json:"is_seed"`
-	PieceRange   []uint  `json:"piece_range"`
-	Availability float32 `json:"availability"`
+	Index          int       `json:"index"`
+	Name           string    `json:"name"`
+	Size           int64     `json:"size"`
+	Progress       float64   `json:"progress"`
+	Priority       int       `json:"priority"`
+	IsSeed         bool      `json:"is_seed"`
+	PieceRange     []int     `json:"piece_range"`
+	Availability   float64   `json:"availability"`
 }
 
-// Sync holds the sync response struct which contains full info for GUI
-// Used by the official WebUI
+// Sync is api/v2/sync/maindata (SyncController::generateMaindataSyncData).
 type Sync struct {
-	Rid             uint64                 `json:"rid"`
-	FullUpdate      bool                   `json:"full_update"`
-	Torrents        map[string]TorrentInfo `json:"torrents"`
-	TorrentsRemoved []string               `json:"torrents_removed"`
-	Categories      []struct {
-		Name     string `json:"name"`
-		SavePath string `json:"savePath"`
-	} `json:"categories"`
-	CategoriesRemoved []string            `json:"categories_removed"`
-	Tags              []string            `json:"tags"`
-	TagsRemoved       []string            `json:"tags_removed"`
-	ServerState       []ServerState       `json:"server_state"`
-	Trackers          map[string][]string `json:"trackers"` // not provided in the API docs!!!
+	Rid               uint64                 `json:"rid"`
+	FullUpdate        bool                   `json:"full_update"`
+	Torrents          map[string]TorrentInfo `json:"torrents"`
+	TorrentsRemoved   []string               `json:"torrents_removed"`
+	Categories          map[string]Category    `json:"categories"`
+	CategoriesRemoved   []string               `json:"categories_removed"`
+	Tags              []string               `json:"tags"`
+	TagsRemoved       []string               `json:"tags_removed"`
+	Trackers          map[string][]string    `json:"trackers"`
+	TrackersRemoved   []string               `json:"trackers_removed"`
+	ServerState       ServerState            `json:"server_state"`
 }
-type ServerState struct {
-	AllTimeDL            int64  `json:"alltime_dl"`
-	AllTimeUL            int64  `json:"alltime_ul"`
-	AverageTimeQueue     int    `json:"average_time_queue"`
-	ConnectionStatus     string `json:"connection_status"`
-	DhtNodes             int    `json:"dht_nodes"`
-	DlInfoData           int    `json:"dl_info_data"`
-	DlInfoSpeed          int    `json:"dl_info_speed"`
-	DlRateLimit          int    `json:"dl_rate_limit"`
-	FreeSpaceOnDisk      int64  `json:"free_space_on_disk"`
-	GlobalRatio          string `json:"global_ratio"` // WTF, why not float?
-	QueuedIoJobs         int    `json:"queued_io_jobs"`
-	Queueing             bool   `json:"queueing"`
-	ReadCacheHits        string `json:"read_cache_hits"`     // ! float as string
-	ReadCacheOverload    string `json:"read_cache_overload"` // ! float
-	RefreshInterval      int    `json:"refresh_interval"`
-	TotalBuffersSize     int64  `json:"total_buffers_size"`
-	TotalPeerConnections int    `json:"total_peer_connections"`
-	TotalQueuedSize      int    `json:"total_queued_size"`
-	TotalWastedSession   int    `json:"total_wasted_session"`
-	UpInfoData           int64  `json:"up_info_data"`
-	UpInfoSpeed          int64  `json:"up_info_speed"`
-	UpRateLimit          int64  `json:"up_rate_limit"`
-	UseAltSpeedLimits    bool   `json:"use_alt_speed_limits"`
-	UseSubcategories     bool   `json:"use_subcategories"`
-	WriteCacheOverload   string `json:"write_cache_overload"` // ! float
 
+// ServerState is the single object under sync/maindata "server_state" (not an array).
+type ServerState struct {
+	AllTimeDL               int64  `json:"alltime_dl"`
+	AllTimeUL               int64  `json:"alltime_ul"`
+	AverageTimeQueue        int    `json:"average_time_queue"`
+	ConnectionStatus        string `json:"connection_status"`
+	DhtNodes                int64  `json:"dht_nodes"`
+	DlInfoData              int64  `json:"dl_info_data"`
+	DlInfoSpeed             int64  `json:"dl_info_speed"`
+	DlRateLimit             int64  `json:"dl_rate_limit"`
+	UpInfoData              int64  `json:"up_info_data"`
+	UpInfoSpeed             int64  `json:"up_info_speed"`
+	UpRateLimit             int64  `json:"up_rate_limit"`
+	LastExternalAddressV4   string `json:"last_external_address_v4"`
+	LastExternalAddressV6   string `json:"last_external_address_v6"`
+	FreeSpaceOnDisk         int64  `json:"free_space_on_disk"`
+	GlobalRatio             string `json:"global_ratio"`
+	QueuedIoJobs            int    `json:"queued_io_jobs"`
+	QueuedTrackerAnnounces  int64  `json:"queued_tracker_announces"`
+	Queueing                bool   `json:"queueing"`
+	ReadCacheHits           string `json:"read_cache_hits"`
+	ReadCacheOverload       string `json:"read_cache_overload"`
+	WriteCacheOverload      string `json:"write_cache_overload"`
+	RefreshInterval         int    `json:"refresh_interval"`
+	TotalBuffersSize        int64  `json:"total_buffers_size"`
+	TotalPeerConnections    int    `json:"total_peer_connections"`
+	TotalQueuedSize         int64  `json:"total_queued_size"`
+	TotalWastedSession      int64  `json:"total_wasted_session"`
+	UseAltSpeedLimits       bool   `json:"use_alt_speed_limits"`
 }
 
 type TorrentPeers struct {
@@ -176,21 +231,23 @@ type TorrentPeers struct {
 
 type Peer struct {
 	Client       string  `json:"client"`
-	Connection   string  `json:"connection"`
-	Country      string  `json:"country"`
-	CountryCode  string  `json:"country_code"`
+	PeerIdClient string  `json:"peer_id_client"`
+	Progress     float64 `json:"progress"`
 	DlSpeed      int     `json:"dl_speed"`
-	Downloaded   int     `json:"downloaded"`
-	Files        string  `json:"files"`
+	UpSpeed      int     `json:"up_speed"`
+	Downloaded   int64   `json:"downloaded"`
+	Uploaded     int64   `json:"uploaded"`
+	Connection   string  `json:"connection"`
 	Flags        string  `json:"flags"`
 	FlagsDesc    string  `json:"flags_desc"`
-	Ip           string  `json:"ip"`
-	PeerIdClient string  `json:"peer_id_client"`
-	Port         int     `json:"port"`
-	Progress     float64 `json:"progress"`
 	Relevance    int     `json:"relevance"`
-	UpSpeed      int     `json:"up_speed"`
-	Uploaded     int64   `json:"uploaded"`
+	Files        string  `json:"files"`
+	Ip           string  `json:"ip"`
+	HostName     string  `json:"host_name"`
+	I2PDest      string  `json:"i2p_dest"`
+	Port         int     `json:"port"`
+	Country      string  `json:"country"`
+	CountryCode  string  `json:"country_code"`
 }
 
 type BuildInfo struct {
@@ -198,7 +255,7 @@ type BuildInfo struct {
 	LibtorrentVersion string `json:"libtorrent"`
 	BoostVersion      string `json:"boost"`
 	OpenSSLVersion    string `json:"openssl"`
-	AppBitness        uint8  `json:"bitness"`
+	AppBitness        int    `json:"bitness"`
 	ZLib              string `json:"zlib"`
 }
 
@@ -432,36 +489,35 @@ type Preferences struct {
 	WebUiUsername                   string                 `json:"web_ui_username"`
 }
 
-// Log
+// Log is one row from api/v2/log/main (timestamp is ms since epoch).
 type Log struct {
 	ID        int    `json:"id"`
 	Message   string `json:"message"`
-	Timestamp int    `json:"timestamp"`
+	Timestamp int64  `json:"timestamp"`
 	Type      int    `json:"type"`
 }
 
-// PeerLog
+// PeerLog is one row from api/v2/log/peers.
 type PeerLog struct {
 	ID        int    `json:"id"`
 	IP        string `json:"ip"`
 	Blocked   bool   `json:"blocked"`
-	Timestamp int    `json:"timestamp"`
+	Timestamp int64  `json:"timestamp"`
 	Reason    string `json:"reason"`
 }
 
-// Info
+// Info is api/v2/transfer/info (TransferController::infoAction only).
 type Info struct {
-	ConnectionStatus  string `json:"connection_status"`
-	DHTNodes          int    `json:"dht_nodes"`
-	DlInfoData        int    `json:"dl_info_data"`
-	DlInfoSpeed       int    `json:"dl_info_speed"`
-	DlRateLimit       int    `json:"dl_rate_limit"`
-	UlInfoData        int    `json:"up_info_data"`
-	UlInfoSpeed       int    `json:"up_info_speed"`
-	UlRateLimit       int    `json:"up_rate_limit"`
-	Queueing          bool   `json:"queueing"`
-	UseAltSpeedLimits bool   `json:"use_alt_speed_limits"`
-	RefreshInterval   int    `json:"refresh_interval"`
+	ConnectionStatus      string `json:"connection_status"`
+	DhtNodes              int64  `json:"dht_nodes"`
+	DlInfoData            int64  `json:"dl_info_data"`
+	DlInfoSpeed           int64  `json:"dl_info_speed"`
+	DlRateLimit           int64  `json:"dl_rate_limit"`
+	UpInfoData            int64  `json:"up_info_data"`
+	UpInfoSpeed           int64  `json:"up_info_speed"`
+	UpRateLimit           int64  `json:"up_rate_limit"`
+	LastExternalAddressV4 string `json:"last_external_address_v4"`
+	LastExternalAddressV6 string `json:"last_external_address_v6"`
 }
 
 type TorrentsOptions struct {
@@ -480,10 +536,8 @@ type Category struct {
 	SavePath string `json:"savePath"`
 }
 
-// Categories mapping
-type Categories struct {
-	Category map[string]Category
-}
+// Categories is the response from api/v2/torrents/categories (map category name -> options).
+type Categories map[string]Category
 
 // LoginOptions contains all options for /login endpoint
 type LoginOptions struct {
