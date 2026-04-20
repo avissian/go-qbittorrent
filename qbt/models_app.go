@@ -11,7 +11,7 @@ type BuildInfo struct {
 
 // Preferences mirrors api/v2/app/preferences (see qBittorrent AppController::preferencesAction).
 // Removed stale keys that never appear in that response (e.g. public_trackers, start_paused_enabled).
-// ScanDirs values may be numbers or strings per watched-folder encoding — use map[string]interface{}.
+// ScanDirs values may be numbers or strings depending on watched-folder encoding; use map[string]interface{}.
 type Preferences struct {
 	AddStoppedEnabled                  bool                   `json:"add_stopped_enabled"`
 	AddToTopOfQueue                    bool                   `json:"add_to_top_of_queue"`

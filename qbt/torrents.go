@@ -10,7 +10,7 @@ import (
 	wrapper "github.com/pkg/errors"
 )
 
-// Torrents returns a list of all torrents in qbittorrent matching your filter
+// Torrents lists torrents (api/v2/torrents/info) according to opts.
 func (client *Client) Torrents(opts TorrentsOptions) (torrentList []TorrentInfo, err error) {
 	params := map[string]string{}
 	if opts.Filter != nil {
@@ -42,7 +42,7 @@ func (client *Client) Torrents(opts TorrentsOptions) (torrentList []TorrentInfo,
 	return torrentList, nil
 }
 
-// Torrent returns a specific torrent matching the hash
+// Torrent returns properties for one torrent (api/v2/torrents/properties).
 func (client *Client) Torrent(hash string) (torrent Torrent, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/properties", opts)
@@ -53,7 +53,7 @@ func (client *Client) Torrent(hash string) (torrent Torrent, err error) {
 	return torrent, nil
 }
 
-// TorrentTrackers returns all trackers for a specific torrent matching the hash
+// TorrentTrackers returns trackers for the torrent identified by hash.
 func (client *Client) TorrentTrackers(hash string) (trackers []Tracker, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/trackers", opts)
@@ -64,7 +64,7 @@ func (client *Client) TorrentTrackers(hash string) (trackers []Tracker, err erro
 	return trackers, nil
 }
 
-// TorrentWebSeeds returns seeders for a specific torrent matching the hash
+// TorrentWebSeeds returns HTTP(S) web seeds for the torrent.
 func (client *Client) TorrentWebSeeds(hash string) (webSeeds []WebSeed, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/webseeds", opts)
@@ -75,7 +75,7 @@ func (client *Client) TorrentWebSeeds(hash string) (webSeeds []WebSeed, err erro
 	return webSeeds, nil
 }
 
-// TorrentFiles from given hash
+// TorrentFiles returns files for the torrent (api/v2/torrents/files).
 func (client *Client) TorrentFiles(hash string) (files []TorrentFile, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/files", opts)
@@ -86,7 +86,7 @@ func (client *Client) TorrentFiles(hash string) (files []TorrentFile, err error)
 	return files, nil
 }
 
-// TorrentPieceStates for all pieces of torrent
+// TorrentPieceStates returns per-piece state codes (api/v2/torrents/pieceStates).
 func (client *Client) TorrentPieceStates(hash string) (states []int, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/pieceStates", opts)
@@ -97,7 +97,7 @@ func (client *Client) TorrentPieceStates(hash string) (states []int, err error) 
 	return states, nil
 }
 
-// TorrentPieceHashes for all pieces of torrent
+// TorrentPieceHashes returns SHA-256 piece hashes (api/v2/torrents/pieceHashes).
 func (client *Client) TorrentPieceHashes(hash string) (hashes []string, err error) {
 	var opts = map[string]string{"hash": strings.ToLower(hash)}
 	resp, err := client.get("api/v2/torrents/pieceHashes", opts)
@@ -108,7 +108,7 @@ func (client *Client) TorrentPieceHashes(hash string) (hashes []string, err erro
 	return hashes, nil
 }
 
-// Pause torrents
+// Pause stops the given torrents (stop/pause depending on API version).
 func (client *Client) Pause(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	var resp *http.Response
@@ -129,7 +129,7 @@ func (client *Client) Pause(hashes []string) (err error) {
 	}
 }
 
-// Resume torrents
+// Resume starts the given torrents (start/resume depending on API version).
 func (client *Client) Resume(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	var resp *http.Response
@@ -199,15 +199,14 @@ func (client *Client) Reannounce(hashes []string) (err error) {
 	}
 }
 
-// DownloadFromLink starts downloading a torrent from a link
+// DownloadLinks adds torrents from magnet links or HTTP .torrent URLs (api/v2/torrents/add).
 func (client *Client) DownloadLinks(links []string, opts DownloadOptions) error {
 	params := map[string]string{}
 	if len(links) == 0 {
 		return wrapper.Errorf("At least one url must be present")
 	} else {
 		delimitedURLs := delimit(links, "%0A")
-		// TODO: Why is encoding causing problems now?
-		// encodedURLS := url.QueryEscape(delimitedURLs)
+		// URLs are joined with newline encoding (%0A); do not apply a second full-string escape here.
 		params["urls"] = delimitedURLs
 	}
 	if opts.Savepath != nil {
@@ -254,7 +253,7 @@ func (client *Client) DownloadLinks(links []string, opts DownloadOptions) error 
 	return nil
 }
 
-// DownloadFromFile starts downloading a torrent from a file
+// DownloadFromFile adds a torrent from a local .torrent path (multipart upload).
 func (client *Client) DownloadFromFile(torrents string, opts DownloadOptions) error {
 	params := map[string]string{}
 	if torrents == "" {
@@ -306,7 +305,7 @@ func (client *Client) DownloadFromFile(torrents string, opts DownloadOptions) er
 	return nil
 }
 
-// AddTrackers to a torrent
+// AddTrackers appends trackers to a torrent.
 func (client *Client) AddTrackers(hash string, trackers []string) error {
 	params := make(map[string]string)
 	params["hash"] = strings.ToLower(hash)
@@ -323,7 +322,7 @@ func (client *Client) AddTrackers(hash string, trackers []string) error {
 	return nil
 }
 
-// EditTracker on a torrent
+// EditTracker replaces one tracker URL with another.
 func (client *Client) EditTracker(hash string, origURL string, newURL string) error {
 	params := map[string]string{
 		"hash":   strings.ToLower(hash),
@@ -346,7 +345,7 @@ func (client *Client) EditTracker(hash string, origURL string, newURL string) er
 	}
 }
 
-// RemoveTrackers from a torrent
+// RemoveTrackers removes tracker URLs from a torrent.
 func (client *Client) RemoveTrackers(hash string, trackers []string) error {
 	params := map[string]string{
 		"hash": strings.ToLower(hash),
@@ -369,7 +368,7 @@ func (client *Client) RemoveTrackers(hash string, trackers []string) error {
 	}
 }
 
-// IncreasePriority of torrents
+// IncreasePriority moves torrents up in the queue (requires queueing enabled).
 func (client *Client) IncreasePriority(hashes []string) error {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/increasePrio", opts)
@@ -387,7 +386,7 @@ func (client *Client) IncreasePriority(hashes []string) error {
 	}
 }
 
-// DecreasePriority of torrents
+// DecreasePriority moves torrents down in the queue (requires queueing enabled).
 func (client *Client) DecreasePriority(hashes []string) error {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/decreasePrio", opts)
@@ -405,7 +404,7 @@ func (client *Client) DecreasePriority(hashes []string) error {
 	}
 }
 
-// MaxPriority maximizes the priority of torrents
+// MaxPriority moves torrents to the top of the queue (requires queueing enabled).
 func (client *Client) MaxPriority(hashes []string) error {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/topPrio", opts)
@@ -423,7 +422,7 @@ func (client *Client) MaxPriority(hashes []string) error {
 	}
 }
 
-// MinPriority maximizes the priority of torrents
+// MinPriority moves torrents to the bottom of the queue (requires queueing enabled).
 func (client *Client) MinPriority(hashes []string) error {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/bottomPrio", opts)
@@ -441,7 +440,7 @@ func (client *Client) MinPriority(hashes []string) error {
 	}
 }
 
-// FilePriority for a torrent
+// FilePriority sets priority for file IDs within a torrent.
 func (client *Client) FilePriority(hash string, ids []int, priority int) error {
 	formattedIds := []string{}
 	for _, id := range ids {
@@ -470,7 +469,7 @@ func (client *Client) FilePriority(hash string, ids []int, priority int) error {
 	}
 }
 
-// GetTorrentDownloadLimit for a list of torrents
+// GetTorrentDownloadLimit returns per-torrent download limits.
 func (client *Client) GetTorrentDownloadLimit(hashes []string) (limits map[string]int, err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/downloadLimit", opts)
@@ -481,7 +480,7 @@ func (client *Client) GetTorrentDownloadLimit(hashes []string) (limits map[strin
 	return limits, nil
 }
 
-// SetTorrentDownloadLimit for a list of torrents
+// SetTorrentDownloadLimit sets per-torrent download limits.
 func (client *Client) SetTorrentDownloadLimit(hashes []string, limit int) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),
@@ -500,7 +499,7 @@ func (client *Client) SetTorrentDownloadLimit(hashes []string, limit int) (err e
 	}
 }
 
-// SetTorrentShareLimit for a list of torrents
+// SetTorrentShareLimit sets ratio and seeding time limits for torrents.
 func (client *Client) SetTorrentShareLimit(hashes []string, ratioLimit int, seedingTimeLimit int) (err error) {
 	opts := map[string]string{
 		"hashes":           delimit(hashes, "|"),
@@ -520,7 +519,7 @@ func (client *Client) SetTorrentShareLimit(hashes []string, ratioLimit int, seed
 	}
 }
 
-// GetTorrentUploadLimit for a list of torrents
+// GetTorrentUploadLimit returns per-torrent upload limits.
 func (client *Client) GetTorrentUploadLimit(hashes []string) (limits map[string]int, err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/uploadLimit", opts)
@@ -531,7 +530,7 @@ func (client *Client) GetTorrentUploadLimit(hashes []string) (limits map[string]
 	return limits, nil
 }
 
-// SetTorrentUploadLimit for a list of torrents
+// SetTorrentUploadLimit sets per-torrent upload limits.
 func (client *Client) SetTorrentUploadLimit(hashes []string, limit int) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),
@@ -550,7 +549,7 @@ func (client *Client) SetTorrentUploadLimit(hashes []string, limit int) (err err
 	}
 }
 
-// SetTorrentLocation for a list of torrents
+// SetTorrentLocation sets the save path for torrents.
 func (client *Client) SetTorrentLocation(hashes []string, location string) (err error) {
 	opts := map[string]string{
 		"hashes":   delimit(hashes, "|"),
@@ -575,7 +574,7 @@ func (client *Client) SetTorrentLocation(hashes []string, location string) (err 
 	}
 }
 
-// SetTorrentName for a torrent
+// SetTorrentName renames a torrent in the session.
 func (client *Client) SetTorrentName(hash string, name string) (err error) {
 	opts := map[string]string{
 		"hash": hash,
@@ -598,7 +597,7 @@ func (client *Client) SetTorrentName(hash string, name string) (err error) {
 	}
 }
 
-// SetTorrentCategory for a list of torrents
+// SetTorrentCategory assigns a category to torrents.
 func (client *Client) SetTorrentCategory(hashes []string, category string) (err error) {
 	opts := map[string]string{
 		"hashes":   delimit(hashes, "|"),
@@ -619,7 +618,7 @@ func (client *Client) SetTorrentCategory(hashes []string, category string) (err 
 	}
 }
 
-// GetCategories used by client
+// GetCategories returns all categories (api/v2/torrents/categories).
 func (client *Client) GetCategories() (categories Categories, err error) {
 	resp, err := client.post("api/v2/torrents/categories", nil)
 	if err != nil {
@@ -629,7 +628,7 @@ func (client *Client) GetCategories() (categories Categories, err error) {
 	return categories, nil
 }
 
-// CreateCategory for use by client
+// CreateCategory creates a category with an optional save path.
 func (client *Client) CreateCategory(category string, savePath string) (err error) {
 	opts := map[string]string{
 		"category": category,
@@ -652,7 +651,7 @@ func (client *Client) CreateCategory(category string, savePath string) (err erro
 	}
 }
 
-// UpdateCategory used by client
+// UpdateCategory changes a category's save path.
 func (client *Client) UpdateCategory(category string, savePath string) (err error) {
 	opts := map[string]string{
 		"category": category,
@@ -675,7 +674,7 @@ func (client *Client) UpdateCategory(category string, savePath string) (err erro
 	}
 }
 
-// DeleteCategories used by client
+// DeleteCategories removes categories by name.
 func (client *Client) DeleteCategories(categories []string) (err error) {
 	opts := map[string]string{"categories": delimit(categories, "\n")}
 	resp, err := client.post("api/v2/torrents/removeCategories", opts)
@@ -691,7 +690,7 @@ func (client *Client) DeleteCategories(categories []string) (err error) {
 	}
 }
 
-// AddTorrentTags to a list of torrents
+// AddTorrentTags adds tags to torrents.
 func (client *Client) AddTorrentTags(hashes []string, tags []string) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),
@@ -729,7 +728,7 @@ func (client *Client) RemoveTorrentTags(hashes []string, tags []string) (err err
 	}
 }
 
-// GetTorrentTags from a list of torrents (empty list removes all tags)
+// GetTorrentTags returns all tags defined in the session (api/v2/torrents/tags).
 func (client *Client) GetTorrentTags() (tags []string, err error) {
 	resp, err := client.get("api/v2/torrents/tags", nil)
 	if err != nil {
@@ -739,7 +738,7 @@ func (client *Client) GetTorrentTags() (tags []string, err error) {
 	return tags, nil
 }
 
-// CreateTags for use by client
+// CreateTags defines new tags in the session.
 func (client *Client) CreateTags(tags []string) (err error) {
 	opts := map[string]string{"tags": delimit(tags, ",")}
 	resp, err := client.post("api/v2/torrents/createTags", opts)
@@ -755,7 +754,7 @@ func (client *Client) CreateTags(tags []string) (err error) {
 	}
 }
 
-// DeleteTags used by client
+// DeleteTags removes tags from the session.
 func (client *Client) DeleteTags(tags []string) (err error) {
 	opts := map[string]string{"tags": delimit(tags, ",")}
 	resp, err := client.post("api/v2/torrents/deleteTags", opts)
@@ -771,7 +770,7 @@ func (client *Client) DeleteTags(tags []string) (err error) {
 	}
 }
 
-// SetAutoManagement for a list of torrents
+// SetAutoManagement toggles automatic torrent management for torrents.
 func (client *Client) SetAutoManagement(hashes []string, enable bool) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),
@@ -789,7 +788,7 @@ func (client *Client) SetAutoManagement(hashes []string, enable bool) (err error
 	}
 }
 
-// ToggleSequentialDownload for a list of torrents
+// ToggleSequentialDownload toggles sequential download for torrents.
 func (client *Client) ToggleSequentialDownload(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/toggleSequentialDownload", opts)
@@ -804,7 +803,7 @@ func (client *Client) ToggleSequentialDownload(hashes []string) (err error) {
 	}
 }
 
-// ToggleFirstLastPiecePriority for a list of torrents
+// ToggleFirstLastPiecePriority toggles first/last piece priority for torrents.
 func (client *Client) ToggleFirstLastPiecePriority(hashes []string) (err error) {
 	opts := map[string]string{"hashes": delimit(hashes, "|")}
 	resp, err := client.post("api/v2/torrents/toggleFirstLastPiecePrio", opts)
@@ -819,7 +818,7 @@ func (client *Client) ToggleFirstLastPiecePriority(hashes []string) (err error) 
 	}
 }
 
-// SetForceStart for a list of torrents
+// SetForceStart sets force-start mode for torrents.
 func (client *Client) SetForceStart(hashes []string, value bool) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),
@@ -837,7 +836,7 @@ func (client *Client) SetForceStart(hashes []string, value bool) (err error) {
 	}
 }
 
-// SetSuperSeeding for a list of torrents
+// SetSuperSeeding sets super seeding mode for torrents.
 func (client *Client) SetSuperSeeding(hashes []string, value bool) (err error) {
 	opts := map[string]string{
 		"hashes": delimit(hashes, "|"),

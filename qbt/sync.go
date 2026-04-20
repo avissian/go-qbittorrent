@@ -7,7 +7,7 @@ import (
 	wrapper "github.com/pkg/errors"
 )
 
-// Sync Endpoints
+// TorrentPeers returns peer list state for sync (api/v2/sync/torrentPeers).
 func (client *Client) TorrentPeers(hash string, rid uint64) (peers TorrentPeers, err error) {
 	if rid == 0 {
 		rid = client.Rid
@@ -34,8 +34,7 @@ func (client *Client) TorrentPeers(hash string, rid uint64) (peers TorrentPeers,
 
 }
 
-// MainData return diff state between Rid (used by WebUI main page)
-// @params Rid - 0 for default next
+// MainData returns incremental main-view state (api/v2/sync/maindata). Use rid 0 to continue from client.Rid.
 func (client *Client) MainData(rid uint64) (sync Sync, err error) {
 	if rid == 0 {
 		rid = client.Rid

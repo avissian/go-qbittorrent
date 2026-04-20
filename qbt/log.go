@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 )
 
-// Log Endpoints
-
-// Logs of the qbittorrent client
+// Logs returns main application log lines (api/v2/log/main).
 func (client *Client) Logs(filters map[string]string) (logs []Log, err error) {
 	resp, err := client.get("api/v2/log/main", filters)
 	if err != nil {
@@ -16,7 +14,7 @@ func (client *Client) Logs(filters map[string]string) (logs []Log, err error) {
 	return logs, err
 }
 
-// PeerLogs of the qbittorrent client
+// PeerLogs returns peer-related log lines (api/v2/log/peers).
 func (client *Client) PeerLogs(filters map[string]string) (logs []PeerLog, err error) {
 	resp, err := client.get("api/v2/log/peers", filters)
 	if err != nil {

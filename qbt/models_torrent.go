@@ -154,7 +154,7 @@ type Tracker struct {
 	Endpoints     []TrackerEndpoint `json:"endpoints"`
 }
 
-// WebSeed holds a webseed object from qbittorrent
+// WebSeed is one HTTP(S) web seed URL for a torrent.
 type WebSeed struct {
 	URL string `json:"url"`
 }

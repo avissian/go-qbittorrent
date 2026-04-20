@@ -9,7 +9,7 @@ import (
 	wrapper "github.com/pkg/errors"
 )
 
-// ApplicationVersion of the qbittorrent client
+// ApplicationVersion returns the qBittorrent application version string.
 func (client *Client) ApplicationVersion() (version string, err error) {
 	resp, err := client.post("api/v2/app/version", nil)
 	if err != nil {
@@ -23,7 +23,7 @@ func (client *Client) ApplicationVersion() (version string, err error) {
 	return
 }
 
-// WebAPIVersion of the qbittorrent client
+// WebAPIVersion returns the Web API version string.
 func (client *Client) WebAPIVersion() (version string, err error) {
 	resp, err := client.post("api/v2/app/webapiVersion", nil)
 	if err != nil {
@@ -37,7 +37,7 @@ func (client *Client) WebAPIVersion() (version string, err error) {
 	return
 }
 
-// BuildInfo of the qbittorrent client
+// BuildInfo returns linked library versions (api/v2/app/buildInfo).
 func (client *Client) BuildInfo() (buildInfo BuildInfo, err error) {
 	resp, err := client.get("api/v2/app/buildInfo", nil)
 	if err != nil {
@@ -47,7 +47,7 @@ func (client *Client) BuildInfo() (buildInfo BuildInfo, err error) {
 	return buildInfo, err
 }
 
-// Preferences of the qbittorrent client
+// Preferences returns settings (api/v2/app/preferences).
 func (client *Client) Preferences() (prefs Preferences, err error) {
 	resp, err := client.get("api/v2/app/preferences", nil)
 	if err != nil {
@@ -56,6 +56,8 @@ func (client *Client) Preferences() (prefs Preferences, err error) {
 	err = json.NewDecoder(resp.Body).Decode(&prefs)
 	return
 }
+
+// PreferencesRaw returns the raw JSON from api/v2/app/preferences without decoding into Preferences.
 func (client *Client) PreferencesRaw() (prefs string, err error) {
 	resp, err := client.get("api/v2/app/preferences", nil)
 	if err != nil {
@@ -69,7 +71,7 @@ func (client *Client) PreferencesRaw() (prefs string, err error) {
 	return
 }
 
-// SetPreferences of the qbittorrent client
+// SetPreferences updates settings (api/v2/app/setPreferences).
 func (client *Client) SetPreferences(opts map[string]any) (err error) {
 	jsonString, err := json.Marshal(opts)
 	resp, err := client.post("api/v2/app/setPreferences", map[string]string{"json": string(jsonString)})
@@ -84,7 +86,7 @@ func (client *Client) SetPreferences(opts map[string]any) (err error) {
 	}
 }
 
-// DefaultSavePath of the qbittorrent client
+// DefaultSavePath returns the default save directory.
 func (client *Client) DefaultSavePath() (path string, err error) {
 	resp, err := client.get("api/v2/app/defaultSavePath", nil)
 	if err != nil {
@@ -98,11 +100,10 @@ func (client *Client) DefaultSavePath() (path string, err error) {
 	return
 }
 
-// Shutdown shuts down the qbittorrent client
+// Shutdown requests application exit (api/v2/app/shutdown).
 func (client *Client) Shutdown() (err error) {
 	resp, err := client.post("api/v2/app/shutdown", nil)
 
-	// return true if successful
 	switch sc := (*resp).StatusCode; sc {
 	case 200:
 		return nil

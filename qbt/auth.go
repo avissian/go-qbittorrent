@@ -7,8 +7,7 @@ import (
 	wrapper "github.com/pkg/errors"
 )
 
-// Login logs you in to the qbittorrent client
-// returns the current authentication status
+// Login authenticates against the qBittorrent Web API and stores the session cookie.
 func (client *Client) Login(opts LoginOptions) (err error) {
 	params := map[string]string{}
 
@@ -26,12 +25,11 @@ func (client *Client) Login(opts LoginOptions) (err error) {
 		return wrapper.Errorf("User's IP is banned for too many failed login attempts")
 	}
 
-	// add the cookie to cookie jar to authenticate later requests
+	// Store the session cookie for subsequent requests.
 	if cookies := resp.Cookies(); len(cookies) > 0 {
 		cookieURL, _ := url.Parse(client.URL)
 		client.Jar.SetCookies(cookieURL, cookies)
-		// create a new client with the cookie jar and replace the old one
-		// so that all our later requests are authenticated
+		// Replace the HTTP client so all later requests use the cookie jar.
 		client.http = &http.Client{
 			Jar: client.Jar,
 		}
@@ -44,25 +42,23 @@ func (client *Client) Login(opts LoginOptions) (err error) {
 		return
 	}
 
-	// change authentication status, so we know were authenticated in later requests
+	// Mark the client as authenticated for callers.
 	client.Authenticated = true
 
 	return nil
 }
 
-// Logout logs you out of the qbittorrent client
-// returns the current authentication status
+// Logout ends the Web UI session.
 func (client *Client) Logout() (err error) {
 	resp, err := client.post("api/v2/auth/logout", nil)
 	if err != nil {
 		return err
 	}
 
-	// change authentication status, so we know were not authenticated in later requests
-	client.Authenticated = (*resp).StatusCode == 200
 	switch sc := (*resp).StatusCode; sc {
 	case 200:
-		return
+		client.Authenticated = false
+		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
 	}

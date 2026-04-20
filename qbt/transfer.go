@@ -8,7 +8,7 @@ import (
 	wrapper "github.com/pkg/errors"
 )
 
-// Info returns info you usually see in qBt status bar.
+// Info returns global transfer statistics (api/v2/transfer/info).
 func (client *Client) Info(opts InfoOptions) (info Info, err error) {
 	resp, err := client.get("api/v2/transfer/info", nil)
 	if err != nil {
@@ -18,7 +18,7 @@ func (client *Client) Info(opts InfoOptions) (info Info, err error) {
 	return info, err
 }
 
-// AltSpeedLimitsEnabled returns info you usually see in qBt status bar.
+// AltSpeedLimitsEnabled reports whether alternative speed limits are active (api/v2/transfer/speedLimitsMode).
 func (client *Client) AltSpeedLimitsEnabled() (mode bool, err error) {
 	resp, err := client.get("api/v2/transfer/speedLimitsMode", nil)
 	if err != nil {
@@ -30,7 +30,7 @@ func (client *Client) AltSpeedLimitsEnabled() (mode bool, err error) {
 	return mode, err
 }
 
-// ToggleAltSpeedLimits returns info you usually see in qBt status bar.
+// ToggleAltSpeedLimits toggles alternative speed limits (api/v2/transfer/toggleSpeedLimitsMode).
 func (client *Client) ToggleAltSpeedLimits() (err error) {
 	resp, err := client.post("api/v2/transfer/toggleSpeedLimitsMode", nil)
 	if err != nil {
@@ -60,7 +60,7 @@ func (client *Client) SetSpeedLimitsMode(mode int) error {
 	}
 }
 
-// DlLimit returns info you usually see in qBt status bar.
+// DlLimit returns the global download limit in bytes/s (api/v2/transfer/downloadLimit).
 func (client *Client) DlLimit() (dlLimit int, err error) {
 	resp, err := client.get("api/v2/transfer/downloadLimit", nil)
 	if err != nil {
@@ -70,7 +70,7 @@ func (client *Client) DlLimit() (dlLimit int, err error) {
 	return dlLimit, err
 }
 
-// SetDlLimit returns info you usually see in qBt status bar.
+// SetDlLimit sets the global download limit (api/v2/transfer/setDownloadLimit).
 func (client *Client) SetDlLimit(limit int) (err error) {
 	params := map[string]string{"limit": strconv.Itoa(limit)}
 	resp, err := client.post("api/v2/transfer/setDownloadLimit", params)
@@ -85,7 +85,7 @@ func (client *Client) SetDlLimit(limit int) (err error) {
 	}
 }
 
-// UlLimit returns info you usually see in qBt status bar.
+// UlLimit returns the global upload limit in bytes/s (api/v2/transfer/uploadLimit).
 func (client *Client) UlLimit() (ulLimit int, err error) {
 	resp, err := client.get("api/v2/transfer/uploadLimit", nil)
 	if err != nil {
@@ -95,7 +95,7 @@ func (client *Client) UlLimit() (ulLimit int, err error) {
 	return ulLimit, err
 }
 
-// SetUlLimit returns info you usually see in qBt status bar.
+// SetUlLimit sets the global upload limit (api/v2/transfer/setUploadLimit).
 func (client *Client) SetUlLimit(limit int) (err error) {
 	params := map[string]string{"limit": strconv.Itoa(limit)}
 	resp, err := client.post("api/v2/transfer/setUploadLimit", params)
@@ -110,6 +110,7 @@ func (client *Client) SetUlLimit(limit int) (err error) {
 	}
 }
 
+// BanPeers bans peers by IP (api/v2/transfer/banPeers).
 func (client *Client) BanPeers(peers []string) (err error) {
 	opts := map[string]string{
 		"peers": delimit(peers, "|"),
