@@ -1,19 +1,17 @@
 name: Release
 
-# Triggers on a version tag (e.g. v1.2.3) or a manual dispatch.
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 permissions:
-  contents: write   # needed to create a GitHub Release and upload assets
+  contents: write   # required to create a GitHub Release and upload assets
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 1. Unit tests (fast gate before the build matrix)
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. Fast gate: unit tests
+  # ───────────────────────────────────────────────────────────────────────────
   test:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -25,12 +23,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run tests
-        run: go test ./qbt/...
+      - run: go test ./qbt/...
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 2. Build shared library for every platform / arch combination
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. Build shared library for every platform / arch
+  # ───────────────────────────────────────────────────────────────────────────
   build:
     name: ${{ matrix.goos }}-${{ matrix.goarch }}
     needs: test
@@ -39,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ── Linux ──────────────────────────────────────────────────────────
+          # ── Linux ─────────────────────────────────────────────────────────
           - runner: ubuntu-latest
             goos: linux
             goarch: amd64
@@ -49,25 +46,26 @@ jobs:
           - runner: ubuntu-latest
             goos: linux
             goarch: arm64
-            cc: aarch64-linux-gnu-gcc
             apt: gcc-aarch64-linux-gnu
+            cc: aarch64-linux-gnu-gcc
             lib: libqbt.so
             archive: libqbt-linux-arm64.tar.gz
 
-          # ── macOS ──────────────────────────────────────────────────────────
-          - runner: macos-13           # Intel runner
-            goos: darwin
-            goarch: amd64
-            lib: libqbt.dylib
-            archive: libqbt-darwin-amd64.tar.gz
-
-          - runner: macos-latest       # Apple-Silicon runner (arm64)
+          # ── macOS (both arches from the same Apple-Silicon runner) ────────
+          - runner: macos-latest
             goos: darwin
             goarch: arm64
             lib: libqbt.dylib
             archive: libqbt-darwin-arm64.tar.gz
 
-          # ── Windows ────────────────────────────────────────────────────────
+          - runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            cc: "clang -arch x86_64"
+            lib: libqbt.dylib
+            archive: libqbt-darwin-amd64.tar.gz
+
+          # ── Windows ───────────────────────────────────────────────────────
           - runner: windows-latest
             goos: windows
             goarch: amd64
@@ -86,8 +84,7 @@ jobs:
         if: matrix.apt != ''
         run: sudo apt-get install -y ${{ matrix.apt }}
 
-      # go build -buildmode=c-shared generates both the library and libqbt.h
-      - name: Build shared library
+      - name: Build
         shell: bash
         env:
           GOOS: ${{ matrix.goos }}
@@ -105,33 +102,31 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path "${{ matrix.lib }}", "libqbt.h" -DestinationPath "${{ matrix.archive }}"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
           if-no-files-found: error
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 3. Collect all artifacts and publish a GitHub Release
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. Create GitHub Release and upload all archives
+  # ───────────────────────────────────────────────────────────────────────────
   release:
-    name: Publish GitHub Release
+    name: Publish release ${{ github.ref_name }}
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: dist/
 
-      - name: List artifacts
-        run: ls -lh dist/
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            dist/*

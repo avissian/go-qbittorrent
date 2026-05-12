@@ -61,8 +61,8 @@ and the matching `libqbt.h` header.
 |---|---|
 | `libqbt-linux-amd64.tar.gz` | Linux x86-64 |
 | `libqbt-linux-arm64.tar.gz` | Linux ARM64 |
-| `libqbt-darwin-amd64.tar.gz` | macOS Intel |
-| `libqbt-darwin-arm64.tar.gz` | macOS Apple Silicon |
+| `libqbt-darwin-arm64.tar.gz` | macOS Apple Silicon (native) |
+| `libqbt-darwin-amd64.tar.gz` | macOS Intel / Rosetta 2 |
 | `libqbt-windows-amd64.zip` | Windows x86-64 |
 
 ### Build from source
