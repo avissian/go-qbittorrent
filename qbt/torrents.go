@@ -2,6 +2,7 @@ package qbt
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -121,8 +122,8 @@ func (client *Client) Pause(hashes []string) (err error) {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -142,8 +143,8 @@ func (client *Client) Resume(hashes []string) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -159,8 +160,8 @@ func (client *Client) Delete(hashes []string, deleteFiles bool) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -175,8 +176,8 @@ func (client *Client) Recheck(hashes []string) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -191,8 +192,8 @@ func (client *Client) Reannounce(hashes []string) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -200,15 +201,15 @@ func (client *Client) Reannounce(hashes []string) (err error) {
 }
 
 // DownloadLinks adds torrents from magnet links or HTTP .torrent URLs (api/v2/torrents/add).
-func (client *Client) DownloadLinks(links []string, opts DownloadOptions) error {
+// Returns TorrentsAddResult when the server responds with JSON (API >= 2.14.0), or nil for older servers.
+func (client *Client) DownloadLinks(links []string, opts DownloadOptions) (*TorrentsAddResult, error) {
 	params := map[string]string{}
 	if len(links) == 0 {
-		return wrapper.Errorf("At least one url must be present")
-	} else {
-		delimitedURLs := delimit(links, "%0A")
-		// URLs are joined with newline encoding (%0A); do not apply a second full-string escape here.
-		params["urls"] = delimitedURLs
+		return nil, wrapper.Errorf("At least one url must be present")
 	}
+	delimitedURLs := delimit(links, "%0A")
+	// URLs are joined with newline encoding (%0A); do not apply a second full-string escape here.
+	params["urls"] = delimitedURLs
 	if opts.Savepath != nil {
 		params["savepath"] = *opts.Savepath
 	}
@@ -245,19 +246,17 @@ func (client *Client) DownloadLinks(links []string, opts DownloadOptions) error 
 
 	resp, err := client.postMultipartData("api/v2/torrents/add", params)
 	if err != nil {
-		return err
-	} else if resp.StatusCode == 415 {
-		return wrapper.Errorf("Torrent file is not valid")
+		return nil, err
 	}
-
-	return nil
+	return parseTorrentsAddResponse(resp)
 }
 
 // DownloadFromFile adds a torrent from a local .torrent path (multipart upload).
-func (client *Client) DownloadFromFile(torrents string, opts DownloadOptions) error {
+// Returns TorrentsAddResult when the server responds with JSON (API >= 2.14.0), or nil for older servers.
+func (client *Client) DownloadFromFile(torrents string, opts DownloadOptions) (*TorrentsAddResult, error) {
 	params := map[string]string{}
 	if torrents == "" {
-		return wrapper.Errorf("At least one file must be present")
+		return nil, wrapper.Errorf("At least one file must be present")
 	}
 	if opts.Savepath != nil {
 		params["savepath"] = *opts.Savepath
@@ -297,12 +296,31 @@ func (client *Client) DownloadFromFile(torrents string, opts DownloadOptions) er
 	}
 	resp, err := client.postMultipartFile("api/v2/torrents/add", torrents, params)
 	if err != nil {
-		return err
-	} else if resp.StatusCode == 415 {
-		return wrapper.Errorf("Torrent file is not valid")
+		return nil, err
 	}
+	return parseTorrentsAddResponse(resp)
+}
 
-	return nil
+// parseTorrentsAddResponse handles the response from api/v2/torrents/add.
+// API >= 2.14.0 returns a JSON body and may use 202 (pending) or 409 (all failed).
+// Older servers return 200 with plain text "Ok." on success or 415 for invalid input.
+func parseTorrentsAddResponse(resp *http.Response) (*TorrentsAddResult, error) {
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	switch resp.StatusCode {
+	case 415:
+		return nil, wrapper.Errorf("Torrent file is not valid")
+	case 409:
+		return nil, wrapper.Errorf("All torrents failed to be added")
+	case 200, 202:
+		var result TorrentsAddResult
+		if json.Unmarshal(body, &result) == nil && (result.SuccessCount > 0 || result.PendingCount > 0 || result.FailureCount > 0) {
+			return &result, nil
+		}
+		return nil, nil
+	default:
+		return nil, wrapper.Errorf("torrents/add: unexpected status %v: %s", resp.StatusCode, string(body))
+	}
 }
 
 // AddTrackers appends trackers to a torrent.
@@ -316,7 +334,7 @@ func (client *Client) AddTrackers(hash string, trackers []string) error {
 	resp, err := client.post("api/v2/torrents/addTrackers", params)
 	if err != nil {
 		return err
-	} else if resp != nil && (*resp).StatusCode == 404 {
+	} else if resp != nil && resp.StatusCode == 404 {
 		return wrapper.Errorf("Torrent hash not found")
 	}
 	return nil
@@ -333,7 +351,7 @@ func (client *Client) EditTracker(hash string, origURL string, newURL string) er
 	if err != nil {
 		return err
 	}
-	switch sc := (*resp).StatusCode; sc {
+	switch sc := resp.StatusCode; sc {
 	case 400:
 		return wrapper.Errorf("newUrl is not a valid url")
 	case 404:
@@ -356,8 +374,8 @@ func (client *Client) RemoveTrackers(hash string, trackers []string) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 404:
 		return wrapper.Errorf("Torrent hash was not found")
@@ -376,8 +394,8 @@ func (client *Client) IncreasePriority(hashes []string) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 409:
 		return wrapper.Errorf("Torrent queueing is not enabled")
@@ -394,8 +412,8 @@ func (client *Client) DecreasePriority(hashes []string) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 409:
 		return wrapper.Errorf("Torrent queueing is not enabled")
@@ -412,8 +430,8 @@ func (client *Client) MaxPriority(hashes []string) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 409:
 		return wrapper.Errorf("Torrent queueing is not enabled")
@@ -430,8 +448,8 @@ func (client *Client) MinPriority(hashes []string) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 409:
 		return wrapper.Errorf("Torrent queueing is not enabled")
@@ -457,8 +475,8 @@ func (client *Client) FilePriority(hash string, ids []int, priority int) error {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 400:
 		return wrapper.Errorf("Priority is invalid or at least one id is not an integer")
@@ -491,28 +509,43 @@ func (client *Client) SetTorrentDownloadLimit(hashes []string, limit int) (err e
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
 	}
 }
 
+// ShareLimitAction controls what happens when a torrent exceeds its share limit (API >= 2.12.0).
+type ShareLimitAction string
+
+const (
+	ShareLimitActionDefault           ShareLimitAction = "Default"
+	ShareLimitActionStop              ShareLimitAction = "Stop"
+	ShareLimitActionRemove            ShareLimitAction = "Remove"
+	ShareLimitActionRemoveWithContent ShareLimitAction = "RemoveWithContent"
+	ShareLimitActionEnableSuperSeeding ShareLimitAction = "EnableSuperSeeding"
+)
+
 // SetTorrentShareLimit sets ratio and seeding time limits for torrents.
-func (client *Client) SetTorrentShareLimit(hashes []string, ratioLimit int, seedingTimeLimit int) (err error) {
+// shareLimitAction is required by API >= 2.12.0; pass ShareLimitActionDefault to keep the existing behaviour.
+func (client *Client) SetTorrentShareLimit(hashes []string, ratioLimit int, seedingTimeLimit int, shareLimitAction ShareLimitAction) (err error) {
+	if shareLimitAction == "" {
+		shareLimitAction = ShareLimitActionDefault
+	}
 	opts := map[string]string{
 		"hashes":           delimit(hashes, "|"),
 		"ratioLimit":       strconv.Itoa(ratioLimit),
 		"seedingTimeLimit": strconv.Itoa(seedingTimeLimit),
+		"shareLimitAction": string(shareLimitAction),
 	}
 	resp, err := client.post("api/v2/torrents/setShareLimits", opts)
 	if err != nil {
 		return
 	}
-
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -541,8 +574,8 @@ func (client *Client) SetTorrentUploadLimit(hashes []string, limit int) (err err
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -560,8 +593,8 @@ func (client *Client) SetTorrentLocation(hashes []string, location string) (err 
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 400:
 		return wrapper.Errorf("Save path is empty")
@@ -585,8 +618,8 @@ func (client *Client) SetTorrentName(hash string, name string) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 404:
 		return wrapper.Errorf("Torrent hash is invalid")
@@ -608,8 +641,8 @@ func (client *Client) SetTorrentCategory(hashes []string, category string) (err 
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 409:
 		return wrapper.Errorf("Category name does not exist")
@@ -639,8 +672,8 @@ func (client *Client) CreateCategory(category string, savePath string) (err erro
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 400:
 		return wrapper.Errorf("Category name is empty")
@@ -662,11 +695,13 @@ func (client *Client) UpdateCategory(category string, savePath string) (err erro
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	case 400:
 		return wrapper.Errorf("Category name is empty")
+	case 404:
+		return wrapper.Errorf("Category not found")
 	case 409:
 		return wrapper.Errorf("Category editing failed")
 	default:
@@ -682,8 +717,8 @@ func (client *Client) DeleteCategories(categories []string) (err error) {
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -701,8 +736,8 @@ func (client *Client) AddTorrentTags(hashes []string, tags []string) (err error)
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -720,8 +755,8 @@ func (client *Client) RemoveTorrentTags(hashes []string, tags []string) (err err
 		return
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -745,9 +780,8 @@ func (client *Client) CreateTags(tags []string) (err error) {
 	if err != nil {
 		return
 	}
-
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -761,9 +795,8 @@ func (client *Client) DeleteTags(tags []string) (err error) {
 	if err != nil {
 		return
 	}
-
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -780,8 +813,8 @@ func (client *Client) SetAutoManagement(hashes []string, enable bool) (err error
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -795,8 +828,8 @@ func (client *Client) ToggleSequentialDownload(hashes []string) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -810,8 +843,8 @@ func (client *Client) ToggleFirstLastPiecePriority(hashes []string) (err error) 
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -828,8 +861,8 @@ func (client *Client) SetForceStart(hashes []string, value bool) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -846,8 +879,8 @@ func (client *Client) SetSuperSeeding(hashes []string, value bool) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)

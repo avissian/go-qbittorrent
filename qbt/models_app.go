@@ -117,7 +117,12 @@ type Preferences struct {
 	MailNotificationPassword           string                 `json:"mail_notification_password"`
 	MailNotificationSender             string                 `json:"mail_notification_sender"`
 	MailNotificationSmtp               string                 `json:"mail_notification_smtp"`
-	MailNotificationSslEnabled         bool                   `json:"mail_notification_ssl_enabled"`
+	// Deprecated: removed in API 2.16.0; use MailNotificationEncryptionType instead.
+	// Kept for decoding responses from qBittorrent < 5.2.0.
+	MailNotificationSslEnabled         bool                   `json:"mail_notification_ssl_enabled,omitempty"`
+	// MailNotificationEncryptionType replaces MailNotificationSslEnabled (API >= 2.16.0).
+	// 0 = none, 1 = SSL/TLS, 2 = STARTTLS.
+	MailNotificationEncryptionType     int                    `json:"mail_notification_encryption_type,omitempty"`
 	MailNotificationUsername           string                 `json:"mail_notification_username"`
 	MarkOfTheWeb                       bool                   `json:"mark_of_the_web"`
 	MaxActiveCheckingTorrents          int                    `json:"max_active_checking_torrents"`
@@ -189,6 +194,7 @@ type Preferences struct {
 	SendBufferLowWatermark             int                    `json:"send_buffer_low_watermark"`
 	SendBufferWatermark                int                    `json:"send_buffer_watermark"`
 	SendBufferWatermarkFactor          int                    `json:"send_buffer_watermark_factor"`
+	SeedingOutgoingConnections         bool                   `json:"seeding_outgoing_connections"`
 	ShareLimitsMode                    string                 `json:"share_limits_mode"`
 	SlowTorrentDlRateThreshold         int                    `json:"slow_torrent_dl_rate_threshold"`
 	SlowTorrentInactiveTimer           int                    `json:"slow_torrent_inactive_timer"`

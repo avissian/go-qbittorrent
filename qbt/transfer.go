@@ -36,8 +36,8 @@ func (client *Client) ToggleAltSpeedLimits() (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -77,8 +77,8 @@ func (client *Client) SetDlLimit(limit int) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -102,11 +102,61 @@ func (client *Client) SetUlLimit(limit int) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
+	}
+}
+
+// SpeedLimits holds global and alternative speed limits as returned by api/v2/transfer/getSpeedLimits (API >= 2.16.0).
+type SpeedLimits struct {
+	DlLimit    int64 `json:"dl_limit"`
+	UpLimit    int64 `json:"up_limit"`
+	AltDlLimit int64 `json:"alt_dl_limit"`
+	AltUpLimit int64 `json:"alt_up_limit"`
+}
+
+// GetSpeedLimits returns global and alternative speed limits (api/v2/transfer/getSpeedLimits, API >= 2.16.0).
+func (client *Client) GetSpeedLimits() (SpeedLimits, error) {
+	var out SpeedLimits
+	resp, err := client.get("api/v2/transfer/getSpeedLimits", nil)
+	if err != nil {
+		return out, err
+	}
+	defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// SetSpeedLimits sets global and alternative speed limits (api/v2/transfer/setSpeedLimits, API >= 2.16.0).
+// Pass -1 for any limit to leave it unchanged.
+func (client *Client) SetSpeedLimits(limits SpeedLimits) error {
+	params := map[string]string{}
+	if limits.DlLimit >= 0 {
+		params["dl_limit"] = strconv.FormatInt(limits.DlLimit, 10)
+	}
+	if limits.UpLimit >= 0 {
+		params["up_limit"] = strconv.FormatInt(limits.UpLimit, 10)
+	}
+	if limits.AltDlLimit >= 0 {
+		params["alt_dl_limit"] = strconv.FormatInt(limits.AltDlLimit, 10)
+	}
+	if limits.AltUpLimit >= 0 {
+		params["alt_up_limit"] = strconv.FormatInt(limits.AltUpLimit, 10)
+	}
+	resp, err := client.post("api/v2/transfer/setSpeedLimits", params)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
+		return nil
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return wrapper.Errorf("setSpeedLimits: status %v: %s", sc, string(body))
 	}
 }
 
@@ -119,8 +169,8 @@ func (client *Client) BanPeers(peers []string) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)

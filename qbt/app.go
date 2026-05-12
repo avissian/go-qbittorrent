@@ -78,8 +78,8 @@ func (client *Client) SetPreferences(opts map[string]any) (err error) {
 	if err != nil {
 		return
 	}
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -103,9 +103,11 @@ func (client *Client) DefaultSavePath() (path string, err error) {
 // Shutdown requests application exit (api/v2/app/shutdown).
 func (client *Client) Shutdown() (err error) {
 	resp, err := client.post("api/v2/app/shutdown", nil)
-
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	if err != nil {
+		return err
+	}
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		return nil
 	default:
 		return wrapper.Errorf("An unknown error occurred causing a status code of: %v", sc)
@@ -175,6 +177,28 @@ func (client *Client) GetFreeSpaceAtPath(p string) (int64, error) {
 	}
 	if resp.StatusCode != 200 {
 		return 0, wrapper.Errorf("getFreeSpaceAtPath: status %v: %s", resp.StatusCode, string(body))
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(string(body)), 10, 64)
+	if err != nil {
+		return 0, wrapper.Wrap(err, "parse free space")
+	}
+	return n, nil
+}
+
+// GetFreeSpaceAtPathAction returns free disk space in bytes at path (api/v2/app/getFreeSpaceAtPathAction, API >= 2.15.2).
+// Unlike GetFreeSpaceAtPath this endpoint is an "action" (POST) rather than a query.
+func (client *Client) GetFreeSpaceAtPathAction(p string) (int64, error) {
+	resp, err := client.post("api/v2/app/getFreeSpaceAtPathAction", map[string]string{"path": p})
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode != 200 {
+		return 0, wrapper.Errorf("getFreeSpaceAtPathAction: status %v: %s", resp.StatusCode, string(body))
 	}
 	n, err := strconv.ParseInt(strings.TrimSpace(string(body)), 10, 64)
 	if err != nil {

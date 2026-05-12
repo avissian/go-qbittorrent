@@ -183,3 +183,13 @@ type AddPeersResult struct {
 	Added  int `json:"added"`
 	Failed int `json:"failed"`
 }
+
+// TorrentsAddResult is the JSON body from api/v2/torrents/add (API >= 2.14.0).
+// HTTP 200 = all added immediately, 202 = some pending (e.g. metadata fetch in progress),
+// 409 = all torrents failed to be added.
+type TorrentsAddResult struct {
+	SuccessCount    int      `json:"success_count"`
+	PendingCount    int      `json:"pending_count"`
+	FailureCount    int      `json:"failure_count"`
+	AddedTorrentIDs []string `json:"added_torrent_ids"`
+}

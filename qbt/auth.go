@@ -21,7 +21,12 @@ func (client *Client) Login(opts LoginOptions) (err error) {
 	resp, err := client.post("api/v2/auth/login", params)
 	if err != nil {
 		return err
-	} else if resp.StatusCode == 403 {
+	}
+	switch resp.StatusCode {
+	case 401:
+		// API >= 2.14.0 returns 401 for invalid credentials.
+		return wrapper.Errorf("Invalid username or password")
+	case 403:
 		return wrapper.Errorf("User's IP is banned for too many failed login attempts")
 	}
 
@@ -55,8 +60,8 @@ func (client *Client) Logout() (err error) {
 		return err
 	}
 
-	switch sc := (*resp).StatusCode; sc {
-	case 200:
+	switch sc := resp.StatusCode; sc {
+	case 200, 204:
 		client.Authenticated = false
 		return nil
 	default:

@@ -34,6 +34,7 @@ type ServerState struct {
 	GlobalRatio            string `json:"global_ratio"`
 	QueuedIoJobs           int    `json:"queued_io_jobs"`
 	QueuedTrackerAnnounces int64  `json:"queued_tracker_announces"`
+	RequestLatency         int64  `json:"request_latency"`
 	Queueing               bool   `json:"queueing"`
 	ReadCacheHits          string `json:"read_cache_hits"`
 	ReadCacheOverload      string `json:"read_cache_overload"`
