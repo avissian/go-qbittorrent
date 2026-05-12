@@ -1,0 +1,137 @@
+name: Release
+
+# Triggers on a version tag (e.g. v1.2.3) or a manual dispatch.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create a GitHub Release and upload assets
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1. Unit tests (fast gate before the build matrix)
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./qbt/...
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2. Build shared library for every platform / arch combination
+  # ─────────────────────────────────────────────────────────────────────────────
+  build:
+    name: ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Linux ──────────────────────────────────────────────────────────
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            lib: libqbt.so
+            archive: libqbt-linux-amd64.tar.gz
+
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            cc: aarch64-linux-gnu-gcc
+            apt: gcc-aarch64-linux-gnu
+            lib: libqbt.so
+            archive: libqbt-linux-arm64.tar.gz
+
+          # ── macOS ──────────────────────────────────────────────────────────
+          - runner: macos-13           # Intel runner
+            goos: darwin
+            goarch: amd64
+            lib: libqbt.dylib
+            archive: libqbt-darwin-amd64.tar.gz
+
+          - runner: macos-latest       # Apple-Silicon runner (arm64)
+            goos: darwin
+            goarch: arm64
+            lib: libqbt.dylib
+            archive: libqbt-darwin-arm64.tar.gz
+
+          # ── Windows ────────────────────────────────────────────────────────
+          - runner: windows-latest
+            goos: windows
+            goarch: amd64
+            lib: libqbt.dll
+            archive: libqbt-windows-amd64.zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install cross-compiler (Linux arm64)
+        if: matrix.apt != ''
+        run: sudo apt-get install -y ${{ matrix.apt }}
+
+      # go build -buildmode=c-shared generates both the library and libqbt.h
+      - name: Build shared library
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+          CC: ${{ matrix.cc }}
+        run: go build -buildmode=c-shared -o ${{ matrix.lib }} ./clib/
+
+      - name: Package (tar.gz)
+        if: runner.os != 'Windows'
+        run: tar czf ${{ matrix.archive }} ${{ matrix.lib }} libqbt.h
+
+      - name: Package (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "${{ matrix.lib }}", "libqbt.h" -DestinationPath "${{ matrix.archive }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 3. Collect all artifacts and publish a GitHub Release
+  # ─────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist/
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
